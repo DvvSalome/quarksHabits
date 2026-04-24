@@ -1,7 +1,7 @@
 const fetch = require('node-fetch');
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
 
 const SYSTEM_PROMPT =
   'Eres un asistente personal inteligente. Analiza las tareas, hábitos y eventos del usuario y proporciona sugerencias concretas y accionables para organizar su día. Responde SIEMPRE en español y SOLO con el JSON solicitado, sin texto adicional.';
@@ -93,15 +93,19 @@ async function callOpenRouter({ apiKey, model, userContent }) {
 }
 
 async function callGemini({ apiKey, model, userContent }) {
-  const url = `${GEMINI_BASE_URL}/${model}:generateContent?key=${apiKey}`;
-
-  const response = await fetch(url, {
+  const response = await fetch(GEMINI_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey,
+    },
     body: JSON.stringify({
-      system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-      contents: [{ role: 'user', parts: [{ text: userContent }] }],
-      generationConfig: { temperature: 0.7 },
+      model,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: userContent },
+      ],
+      temperature: 0.7,
     }),
   });
 
@@ -114,7 +118,7 @@ async function callGemini({ apiKey, model, userContent }) {
   }
 
   const json = await response.json();
-  return json.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  return json.choices?.[0]?.message?.content || '';
 }
 
 function buildUserPrompt({ tasks, habits, events, date }) {
