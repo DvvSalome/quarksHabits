@@ -1,43 +1,48 @@
 const fetch = require('node-fetch');
 
-const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
-const MODEL = 'gpt-4o-mini';
+const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 const SYSTEM_PROMPT =
-  'Eres un asistente personal inteligente. Analiza las tareas, hábitos y eventos del usuario y proporciona sugerencias concretas y accionables para organizar su día.';
+  'Eres un asistente personal inteligente. Analiza las tareas, hábitos y eventos del usuario y proporciona sugerencias concretas y accionables para organizar su día. Responde SIEMPRE en español y SOLO con el JSON solicitado, sin texto adicional.';
 
-async function getSuggestions({ apiKey, tasks = [], habits = [], events = [], date }) {
+async function getSuggestions({ apiKey, model, tasks = [], habits = [], events = [], date }) {
   if (!apiKey || apiKey.trim() === '') {
-    const err = new Error('apiKey is required in request body');
+    const err = new Error('apiKey es requerido');
+    err.status = 400;
+    throw err;
+  }
+
+  if (!model || model.trim() === '') {
+    const err = new Error('model es requerido (ej: openai/gpt-4o-mini, anthropic/claude-haiku)');
     err.status = 400;
     throw err;
   }
 
   const today = date || new Date().toISOString().slice(0, 10);
-
   const userContent = buildUserPrompt({ tasks, habits, events, date: today });
 
-  const response = await fetch(OPENAI_API_URL, {
+  const response = await fetch(OPENROUTER_API_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey.trim()}`,
+      'HTTP-Referer': 'http://localhost:5173',
+      'X-Title': 'Asistente Personal',
     },
     body: JSON.stringify({
-      model: MODEL,
+      model: model.trim(),
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: userContent },
       ],
       temperature: 0.7,
-      response_format: { type: 'json_object' },
     }),
   });
 
   if (!response.ok) {
     const errorBody = await response.json().catch(() => ({}));
     const message =
-      errorBody?.error?.message || `OpenAI API returned status ${response.status}`;
+      errorBody?.error?.message || `OpenRouter devolvió status ${response.status}`;
     const err = new Error(message);
     err.status = response.status === 401 ? 401 : 502;
     throw err;
@@ -47,16 +52,16 @@ async function getSuggestions({ apiKey, tasks = [], habits = [], events = [], da
   const raw = json.choices?.[0]?.message?.content;
 
   if (!raw) {
-    const err = new Error('Empty response from OpenAI');
+    const err = new Error('Respuesta vacía del modelo');
     err.status = 502;
     throw err;
   }
 
   let parsed;
   try {
-    parsed = JSON.parse(raw);
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    parsed = JSON.parse(jsonMatch ? jsonMatch[0] : raw);
   } catch {
-    // Wrap non-JSON response in our structure
     parsed = {
       dailySuggestion: raw,
       priorityRecommendations: [],
@@ -65,7 +70,6 @@ async function getSuggestions({ apiKey, tasks = [], habits = [], events = [], da
     };
   }
 
-  // Ensure shape
   return {
     dailySuggestion: parsed.dailySuggestion || parsed.daily_suggestion || '',
     priorityRecommendations:
@@ -93,8 +97,7 @@ function buildUserPrompt({ tasks, habits, events, date }) {
     '',
     `## Hábitos (${habits.length})`,
     ...habits.map(
-      (h) =>
-        `- ${h.name} (${h.frequency}) — racha actual: ${h.streak || 0} días`
+      (h) => `- ${h.name} (${h.frequency}) — racha actual: ${h.streak || 0} días`
     ),
     '',
     `## Eventos de hoy (${events.length})`,
@@ -103,11 +106,11 @@ function buildUserPrompt({ tasks, habits, events, date }) {
         `- ${e.title}${e.startTime ? ` a las ${new Date(e.startTime).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}` : ''}${e.allDay ? ' (todo el día)' : ''}`
     ),
     '',
-    'Por favor, responde SOLO con un objeto JSON con esta estructura exacta:',
+    'Responde SOLO con este JSON (sin markdown, sin código, sin explicaciones):',
     '{',
     '  "dailySuggestion": "Resumen ejecutivo del día con las acciones más importantes",',
-    '  "priorityRecommendations": ["tarea o acción recomendada 1", "tarea o acción recomendada 2", "..."],',
-    '  "timeBlocks": [{"time": "09:00 - 10:00", "activity": "descripción de la actividad"}, ...],',
+    '  "priorityRecommendations": ["acción recomendada 1", "acción recomendada 2"],',
+    '  "timeBlocks": [{"time": "09:00 - 10:00", "activity": "descripción"}],',
     '  "motivationalMessage": "Mensaje motivacional corto y personalizado"',
     '}',
   ];

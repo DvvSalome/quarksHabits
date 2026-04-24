@@ -12,10 +12,11 @@ export default function AIAssistant({ isOpen, onClose, tasks, habits, events }) 
   const [error, setError] = useState(null)
 
   const apiKey = localStorage.getItem('ai_api_key')
+  const aiModel = localStorage.getItem('ai_model')
   const today = new Date()
 
   const analyze = async () => {
-    if (!apiKey) {
+    if (!apiKey || !aiModel) {
       setError('no_key')
       return
     }
@@ -33,6 +34,7 @@ export default function AIAssistant({ isOpen, onClose, tasks, habits, events }) 
 
       const res = await client.post('/ai/suggest', {
         apiKey,
+        model: aiModel,
         tasks: todayTasks,
         habits: todayHabits,
         events: todayEvents,
@@ -78,14 +80,16 @@ export default function AIAssistant({ isOpen, onClose, tasks, habits, events }) 
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-6 py-5">
-          {!apiKey && (
+          {(!apiKey || !aiModel) && (
             <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 mb-5">
               <div className="flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-amber-800">API Key no configurada</p>
+                  <p className="text-sm font-medium text-amber-800">
+                    {!apiKey ? 'API Key no configurada' : 'Modelo no especificado'}
+                  </p>
                   <p className="text-xs text-amber-600 mt-1">
-                    Configura tu OpenAI API Key en{' '}
+                    Configura tu API Key de OpenRouter y el modelo en{' '}
                     <Link to="/settings" onClick={onClose} className="underline font-medium">
                       Configuración
                     </Link>
