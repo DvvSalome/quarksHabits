@@ -292,6 +292,7 @@ export default function Dashboard() {
         tasks={tasks.data}
         habits={habits.data}
         events={events.data}
+        routine={routine.data}
       />
     </div>
   )

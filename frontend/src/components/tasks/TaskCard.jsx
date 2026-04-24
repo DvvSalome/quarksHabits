@@ -1,6 +1,6 @@
-import { format, parseISO, isValid } from 'date-fns'
+import { format, parseISO, isValid, isPast, isToday, startOfDay } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Pencil, Trash2, Calendar } from 'lucide-react'
+import { Pencil, Trash2, Calendar, AlertCircle } from 'lucide-react'
 import Badge from '../ui/Badge'
 
 const priorityLabel = {
@@ -24,11 +24,17 @@ function parseDate(val) {
 
 export default function TaskCard({ task, onToggle, onEdit, onDelete }) {
   const dueDate = parseDate(task.dueDate)
+  const isOverdue = dueDate && !task.completed && isPast(startOfDay(dueDate)) && !isToday(dueDate)
+  const isDueToday = dueDate && !task.completed && isToday(dueDate)
 
   return (
     <div
       className={`flex items-start gap-3 p-4 bg-white rounded-xl border transition-all duration-150 group hover:shadow-sm ${
-        task.completed ? 'border-gray-100 opacity-60' : 'border-gray-100 hover:border-gray-200'
+        task.completed
+          ? 'border-gray-100 opacity-60'
+          : isOverdue
+          ? 'border-red-200 bg-red-50/30'
+          : 'border-gray-100 hover:border-gray-200'
       }`}
     >
       {/* Checkbox */}
@@ -67,9 +73,11 @@ export default function TaskCard({ task, onToggle, onEdit, onDelete }) {
             </span>
           )}
           {dueDate && (
-            <span className="flex items-center gap-1 text-xs text-gray-400">
-              <Calendar className="w-3 h-3" />
-              {format(dueDate, 'd MMM', { locale: es })}
+            <span className={`flex items-center gap-1 text-xs ${
+              isOverdue ? 'text-red-600 font-medium' : isDueToday ? 'text-amber-600 font-medium' : 'text-gray-400'
+            }`}>
+              {isOverdue ? <AlertCircle className="w-3 h-3" /> : <Calendar className="w-3 h-3" />}
+              {isOverdue ? 'Atrasada — ' : isDueToday ? 'Hoy — ' : ''}{format(dueDate, 'd MMM', { locale: es })}
             </span>
           )}
           {task.tags && task.tags.length > 0 && (
