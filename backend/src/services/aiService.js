@@ -97,7 +97,7 @@ async function callGemini({ apiKey, model, userContent }) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-goog-api-key': apiKey,
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       model,
@@ -111,7 +111,9 @@ async function callGemini({ apiKey, model, userContent }) {
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
-    const message = body?.error?.message || `Gemini status ${response.status}`;
+    const detail = body?.error?.details?.[0]?.description || body?.error?.status || '';
+    const message = [body?.error?.message, detail].filter(Boolean).join(' — ') || `Gemini status ${response.status}`;
+    console.error('[Gemini error]', JSON.stringify(body, null, 2));
     const err = new Error(message);
     err.status = response.status === 401 ? 401 : 502;
     throw err;
