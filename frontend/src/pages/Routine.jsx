@@ -44,21 +44,21 @@ export default function Routine() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <DayTimeline
             blocks={blocks}
-            period="morning"
+            timeSlot="morning"
             onCreate={handleCreate}
             onUpdate={handleUpdate}
             onDelete={handleDelete}
           />
           <DayTimeline
             blocks={blocks}
-            period="afternoon"
+            timeSlot="afternoon"
             onCreate={handleCreate}
             onUpdate={handleUpdate}
             onDelete={handleDelete}
           />
           <DayTimeline
             blocks={blocks}
-            period="evening"
+            timeSlot="evening"
             onCreate={handleCreate}
             onUpdate={handleUpdate}
             onDelete={handleDelete}

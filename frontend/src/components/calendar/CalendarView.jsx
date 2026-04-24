@@ -16,16 +16,6 @@ import {
 import { es } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
-const EVENT_COLORS = {
-  indigo: 'bg-indigo-500',
-  blue: 'bg-blue-500',
-  green: 'bg-green-500',
-  red: 'bg-red-500',
-  amber: 'bg-amber-500',
-  purple: 'bg-purple-500',
-  pink: 'bg-pink-500',
-}
-
 function parseDate(val) {
   if (!val) return null
   try {
@@ -117,7 +107,8 @@ export default function CalendarView({ events = [], tasks = [], onDayClick, sele
                 {dayEvents.slice(0, 2).map((ev) => (
                   <div
                     key={ev._id || ev.id}
-                    className={`h-1.5 w-full rounded-full ${EVENT_COLORS[ev.color] || 'bg-indigo-400'}`}
+                    className="h-1.5 w-full rounded-full"
+                    style={{ backgroundColor: ev.color || '#6366f1' }}
                   />
                 ))}
                 {dayTasks.slice(0, 1).map((t) => (

@@ -1,7 +1,7 @@
 const fetch = require('node-fetch');
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
+const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 const SYSTEM_PROMPT =
   'Eres un asistente personal inteligente. Analiza las tareas, hábitos y eventos del usuario y proporciona sugerencias concretas y accionables para organizar su día. Responde SIEMPRE en español y SOLO con el JSON solicitado, sin texto adicional.';
@@ -93,26 +93,32 @@ async function callOpenRouter({ apiKey, model, userContent }) {
 }
 
 async function callGemini({ apiKey, model, userContent }) {
-  const response = await fetch(GEMINI_URL, {
+  const modelId = model.startsWith('models/') ? model.slice(7) : model;
+  const url = `${GEMINI_BASE_URL}/${modelId}:generateContent`;
+
+  const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
+      'x-goog-api-key': apiKey,
     },
     body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: userContent },
-      ],
-      temperature: 0.7,
+      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      contents: [{ role: 'user', parts: [{ text: userContent }] }],
+      generationConfig: { temperature: 0.7, responseMimeType: 'application/json' },
     }),
   });
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
-    const detail = body?.error?.details?.[0]?.description || body?.error?.status || '';
-    const message = [body?.error?.message, detail].filter(Boolean).join(' — ') || `Gemini status ${response.status}`;
+    const rootError = Array.isArray(body) ? body[0]?.error : body?.error;
+    const detail =
+      rootError?.details?.find((d) => d.reason)?.reason ||
+      rootError?.status ||
+      '';
+    const message =
+      [rootError?.message, detail].filter(Boolean).join(' — ') ||
+      `Gemini status ${response.status}`;
     console.error('[Gemini error]', JSON.stringify(body, null, 2));
     const err = new Error(message);
     err.status = response.status === 401 ? 401 : 502;
@@ -120,7 +126,7 @@ async function callGemini({ apiKey, model, userContent }) {
   }
 
   const json = await response.json();
-  return json.choices?.[0]?.message?.content || '';
+  return json.candidates?.[0]?.content?.parts?.[0]?.text || '';
 }
 
 function buildUserPrompt({ tasks, habits, events, date }) {

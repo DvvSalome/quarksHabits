@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { format, isSameDay, parseISO, isValid } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Plus, Clock, Trash2 } from 'lucide-react'
+import { Plus, Clock, Trash2, Pencil } from 'lucide-react'
 import { useEvents } from '../hooks/useEvents'
 import { useTasks } from '../hooks/useTasks'
 import CalendarView from '../components/calendar/CalendarView'
@@ -18,21 +18,12 @@ function parseDate(val) {
   } catch { return null }
 }
 
-const EVENT_COLORS = {
-  indigo: 'bg-indigo-500',
-  blue: 'bg-blue-500',
-  green: 'bg-green-500',
-  red: 'bg-red-500',
-  amber: 'bg-amber-500',
-  purple: 'bg-purple-500',
-  pink: 'bg-pink-500',
-}
-
 export default function Calendar() {
-  const { data: events, loading: eventsLoading, create, delete: del } = useEvents()
+  const { data: events, create, update, delete: del } = useEvents()
   const { data: tasks } = useTasks()
   const [selectedDay, setSelectedDay] = useState(new Date())
   const [modalOpen, setModalOpen] = useState(false)
+  const [editingEvent, setEditingEvent] = useState(null)
 
   const dayEvents = useMemo(() =>
     events
@@ -61,6 +52,14 @@ export default function Calendar() {
       await create(data)
       toast.success('Evento creado')
       setModalOpen(false)
+    } catch {}
+  }
+
+  const handleUpdate = async (data) => {
+    try {
+      await update(editingEvent._id || editingEvent.id, data)
+      toast.success('Evento actualizado')
+      setEditingEvent(null)
     } catch {}
   }
 
@@ -118,7 +117,10 @@ export default function Calendar() {
                         key={event._id || event.id}
                         className="flex items-start gap-2 p-3 bg-gray-50 rounded-xl group"
                       >
-                        <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${EVENT_COLORS[event.color] || 'bg-indigo-400'}`} />
+                        <div
+                          className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0"
+                          style={{ backgroundColor: event.color || '#6366f1' }}
+                        />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-900 truncate">{event.title}</p>
                           {start && !event.allDay && (
@@ -131,12 +133,20 @@ export default function Calendar() {
                             <p className="text-xs text-gray-400 mt-0.5 truncate">{event.description}</p>
                           )}
                         </div>
-                        <button
-                          onClick={() => handleDelete(event._id || event.id)}
-                          className="opacity-0 group-hover:opacity-100 p-1 rounded text-gray-400 hover:text-red-500 transition-all"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => setEditingEvent(event)}
+                            className="p-1 rounded text-gray-400 hover:text-indigo-500 transition-colors"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(event._id || event.id)}
+                            className="p-1 rounded text-gray-400 hover:text-red-500 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     )
                   })}
@@ -166,13 +176,24 @@ export default function Calendar() {
         </div>
       </div>
 
-      {/* Modal */}
+      {/* Create modal */}
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title="Nuevo evento" size="lg">
         <EventForm
           defaultDate={selectedDay}
           onSubmit={handleCreate}
           onCancel={() => setModalOpen(false)}
         />
+      </Modal>
+
+      {/* Edit modal */}
+      <Modal isOpen={!!editingEvent} onClose={() => setEditingEvent(null)} title="Editar evento" size="lg">
+        {editingEvent && (
+          <EventForm
+            initial={editingEvent}
+            onSubmit={handleUpdate}
+            onCancel={() => setEditingEvent(null)}
+          />
+        )}
       </Modal>
     </div>
   )

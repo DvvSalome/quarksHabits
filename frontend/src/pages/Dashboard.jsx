@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react'
-import { format, isSameDay, isToday, parseISO, isValid } from 'date-fns'
+import { format, isToday, parseISO, isValid } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Sparkles, CheckCircle2, Repeat, Calendar, Flame } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useTasks } from '../hooks/useTasks'
 import { useHabits } from '../hooks/useHabits'
 import { useEvents } from '../hooks/useEvents'
@@ -44,6 +45,7 @@ function LoadingRow() {
 
 export default function Dashboard() {
   const [aiOpen, setAiOpen] = useState(false)
+  const navigate = useNavigate()
   const tasks = useTasks()
   const habits = useHabits()
   const events = useEvents()
@@ -101,10 +103,20 @@ export default function Dashboard() {
     [habits.data]
   )
 
-  const todayRoutine = useMemo(() =>
-    routine.data.sort((a, b) => a.startTime?.localeCompare(b.startTime)),
-    [routine.data]
-  )
+  const todayRoutine = useMemo(() => {
+    const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+    const todayName = DAYS[today.getDay()]
+    return routine.data
+      .filter((b) => {
+        if (!b.dayOfWeek || b.dayOfWeek === 'all') return true
+        try {
+          const parsed = JSON.parse(b.dayOfWeek)
+          if (Array.isArray(parsed)) return parsed.includes(todayName)
+        } catch {}
+        return b.dayOfWeek === todayName
+      })
+      .sort((a, b) => a.startTime?.localeCompare(b.startTime))
+  }, [routine.data])
 
   const handleToggle = async (id, completed) => {
     try {
@@ -117,6 +129,20 @@ export default function Dashboard() {
     try {
       await habits.checkIn(id, date)
       toast.success('Hábito registrado')
+    } catch {}
+  }
+
+  const handleDeleteTask = async (id) => {
+    try {
+      await tasks.delete(id)
+      toast.success('Tarea eliminada')
+    } catch {}
+  }
+
+  const handleDeleteHabit = async (id) => {
+    try {
+      await habits.delete(id)
+      toast.success('Hábito eliminado')
     } catch {}
   }
 
@@ -172,8 +198,8 @@ export default function Dashboard() {
                   key={task._id || task.id}
                   task={task}
                   onToggle={handleToggle}
-                  onEdit={() => {}}
-                  onDelete={() => {}}
+                  onEdit={() => navigate('/tasks')}
+                  onDelete={handleDeleteTask}
                 />
               ))}
             </div>
@@ -228,8 +254,8 @@ export default function Dashboard() {
                 key={habit._id || habit.id}
                 habit={habit}
                 onCheckIn={handleHabitCheckin}
-                onEdit={() => {}}
-                onDelete={() => {}}
+                onEdit={() => navigate('/habits')}
+                onDelete={handleDeleteHabit}
               />
             ))}
           </div>

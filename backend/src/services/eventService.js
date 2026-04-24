@@ -104,7 +104,7 @@ async function updateEvent(id, data) {
   }
 
   if (endTime !== undefined) {
-    if (endTime === null) {
+    if (endTime === null || endTime === '') {
       updateData.endTime = null;
     } else {
       const end = new Date(endTime);
@@ -115,6 +115,16 @@ async function updateEvent(id, data) {
       }
       updateData.endTime = end;
     }
+  }
+
+  // Cross-field validation: if we're updating either start or end,
+  // ensure the final start < end
+  const finalStart = updateData.startTime ?? existing.startTime;
+  const finalEnd = updateData.endTime !== undefined ? updateData.endTime : existing.endTime;
+  if (finalStart && finalEnd && finalEnd < finalStart) {
+    const err = new Error('endTime must be after startTime');
+    err.status = 400;
+    throw err;
   }
 
   return prisma.event.update({ where: { id }, data: updateData });

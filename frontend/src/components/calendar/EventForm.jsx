@@ -3,13 +3,14 @@ import Button from '../ui/Button'
 import Input, { Textarea } from '../ui/Input'
 
 const COLOR_OPTIONS = [
-  { name: 'indigo', bg: 'bg-indigo-500' },
-  { name: 'blue', bg: 'bg-blue-500' },
-  { name: 'green', bg: 'bg-green-500' },
-  { name: 'red', bg: 'bg-red-500' },
-  { name: 'amber', bg: 'bg-amber-500' },
-  { name: 'purple', bg: 'bg-purple-500' },
-  { name: 'pink', bg: 'bg-pink-500' },
+  '#6366f1', // indigo
+  '#3b82f6', // blue
+  '#10b981', // green
+  '#ef4444', // red
+  '#f59e0b', // amber
+  '#8b5cf6', // purple
+  '#ec4899', // pink
+  '#06b6d4', // cyan
 ]
 
 const defaultForm = {
@@ -18,7 +19,7 @@ const defaultForm = {
   startTime: '',
   endTime: '',
   allDay: false,
-  color: 'indigo',
+  color: '#6366f1',
 }
 
 function toLocalDatetimeValue(iso) {
@@ -121,13 +122,14 @@ export default function EventForm({ initial, defaultDate, onSubmit, onCancel }) 
       <div className="flex flex-col gap-2">
         <label className="text-sm font-medium text-gray-700">Color</label>
         <div className="flex gap-2">
-          {COLOR_OPTIONS.map(({ name, bg }) => (
+          {COLOR_OPTIONS.map((hex) => (
             <button
-              key={name}
+              key={hex}
               type="button"
-              onClick={() => setForm((f) => ({ ...f, color: name }))}
-              className={`w-7 h-7 rounded-full ${bg} transition-transform ${
-                form.color === name ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : 'hover:scale-110'
+              onClick={() => setForm((f) => ({ ...f, color: hex }))}
+              style={{ backgroundColor: hex }}
+              className={`w-7 h-7 rounded-full transition-transform ${
+                form.color === hex ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : 'hover:scale-110'
               }`}
             />
           ))}

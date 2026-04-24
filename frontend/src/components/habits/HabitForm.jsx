@@ -3,14 +3,15 @@ import Button from '../ui/Button'
 import Input, { Select } from '../ui/Input'
 
 const PRESET_COLORS = [
-  { name: 'indigo', label: 'Índigo', bg: 'bg-indigo-500' },
-  { name: 'purple', label: 'Morado', bg: 'bg-purple-500' },
-  { name: 'green', label: 'Verde', bg: 'bg-green-500' },
-  { name: 'blue', label: 'Azul', bg: 'bg-blue-500' },
-  { name: 'red', label: 'Rojo', bg: 'bg-red-500' },
-  { name: 'amber', label: 'Ámbar', bg: 'bg-amber-500' },
-  { name: 'pink', label: 'Rosa', bg: 'bg-pink-500' },
-  { name: 'teal', label: 'Verde azulado', bg: 'bg-teal-500' },
+  '#6366f1', // indigo
+  '#8b5cf6', // purple
+  '#10b981', // green
+  '#3b82f6', // blue
+  '#ef4444', // red
+  '#f59e0b', // amber
+  '#ec4899', // pink
+  '#14b8a6', // teal
+  '#06b6d4', // cyan
 ]
 
 const EMOJI_OPTIONS = ['🏃', '📚', '💧', '🧘', '💪', '🎯', '✍️', '🎵', '🌿', '😴', '🥗', '🧹']
@@ -18,7 +19,7 @@ const EMOJI_OPTIONS = ['🏃', '📚', '💧', '🧘', '💪', '🎯', '✍️',
 const defaultForm = {
   name: '',
   frequency: 'daily',
-  color: 'indigo',
+  color: '#6366f1',
   icon: '✨',
 }
 
@@ -63,13 +64,14 @@ export default function HabitForm({ initial, onSubmit, onCancel }) {
       <div className="flex flex-col gap-2">
         <label className="text-sm font-medium text-gray-700">Color</label>
         <div className="flex gap-2 flex-wrap">
-          {PRESET_COLORS.map(({ name, bg }) => (
+          {PRESET_COLORS.map((hex) => (
             <button
-              key={name}
+              key={hex}
               type="button"
-              onClick={() => setForm((f) => ({ ...f, color: name }))}
-              className={`w-7 h-7 rounded-full ${bg} transition-transform ${
-                form.color === name ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : 'hover:scale-110'
+              onClick={() => setForm((f) => ({ ...f, color: hex }))}
+              style={{ backgroundColor: hex }}
+              className={`w-7 h-7 rounded-full transition-transform ${
+                form.color === hex ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : 'hover:scale-110'
               }`}
             />
           ))}

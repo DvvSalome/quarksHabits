@@ -5,9 +5,9 @@ import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import Input from '../ui/Input'
 
-function BlockForm({ initial, period, onSubmit, onCancel }) {
+function BlockForm({ initial, timeSlot, onSubmit, onCancel }) {
   const [form, setForm] = useState(
-    initial || { activity: '', startTime: '', endTime: '', period }
+    initial || { activity: '', startTime: '', endTime: '' }
   )
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -18,8 +18,17 @@ function BlockForm({ initial, period, onSubmit, onCancel }) {
     e.preventDefault()
     if (!form.activity.trim()) { setError('El nombre es requerido'); return }
     if (!form.startTime) { setError('La hora de inicio es requerida'); return }
+    if (!form.endTime) { setError('La hora de fin es requerida'); return }
     setLoading(true)
-    try { await onSubmit({ ...form, period }) } finally { setLoading(false) }
+    try {
+      await onSubmit({
+        title: form.activity.trim(),
+        activity: form.activity.trim(),
+        startTime: form.startTime,
+        endTime: form.endTime,
+        timeSlot,
+      })
+    } finally { setLoading(false) }
   }
 
   return (
@@ -58,20 +67,20 @@ function BlockForm({ initial, period, onSubmit, onCancel }) {
   )
 }
 
-const PERIOD_CONFIG = {
+const TIME_SLOT_CONFIG = {
   morning: { label: 'Mañana', icon: '🌅', range: '6:00 - 12:00', color: 'from-amber-50 to-orange-50 border-amber-100' },
   afternoon: { label: 'Tarde', icon: '☀️', range: '12:00 - 18:00', color: 'from-blue-50 to-cyan-50 border-blue-100' },
   evening: { label: 'Noche', icon: '🌙', range: '18:00 - 23:00', color: 'from-indigo-50 to-purple-50 border-indigo-100' },
 }
 
-export default function DayTimeline({ blocks, period, onCreate, onUpdate, onDelete }) {
+export default function DayTimeline({ blocks, timeSlot, onCreate, onUpdate, onDelete }) {
   const [showModal, setShowModal] = useState(false)
   const [editingBlock, setEditingBlock] = useState(null)
 
-  const config = PERIOD_CONFIG[period]
+  const config = TIME_SLOT_CONFIG[timeSlot]
 
-  const periodBlocks = blocks
-    .filter((b) => b.period === period)
+  const slotBlocks = blocks
+    .filter((b) => b.timeSlot === timeSlot)
     .sort((a, b) => a.startTime?.localeCompare(b.startTime))
 
   const handleCreate = async (data) => {
@@ -104,10 +113,10 @@ export default function DayTimeline({ blocks, period, onCreate, onUpdate, onDele
       </div>
 
       <div className="flex flex-col gap-2">
-        {periodBlocks.length === 0 && (
+        {slotBlocks.length === 0 && (
           <p className="text-xs text-gray-400 text-center py-4">Sin bloques</p>
         )}
-        {periodBlocks.map((block) => (
+        {slotBlocks.map((block) => (
           <RoutineBlock
             key={block._id || block.id}
             block={block}
@@ -123,7 +132,7 @@ export default function DayTimeline({ blocks, period, onCreate, onUpdate, onDele
         title={`Agregar bloque — ${config.label}`}
       >
         <BlockForm
-          period={period}
+          timeSlot={timeSlot}
           onSubmit={handleCreate}
           onCancel={() => setShowModal(false)}
         />
@@ -137,7 +146,7 @@ export default function DayTimeline({ blocks, period, onCreate, onUpdate, onDele
         {editingBlock && (
           <BlockForm
             initial={editingBlock}
-            period={period}
+            timeSlot={timeSlot}
             onSubmit={handleUpdate}
             onCancel={() => setEditingBlock(null)}
           />
