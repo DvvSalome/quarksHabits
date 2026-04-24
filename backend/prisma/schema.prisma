@@ -1,0 +1,67 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Task {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  completed   Boolean   @default(false)
+  priority    String    @default("medium")
+  category    String?
+  tags        String?
+  dueDate     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Habit {
+  id        String     @id @default(cuid())
+  name      String
+  frequency String     @default("daily")
+  color     String     @default("#6366f1")
+  icon      String?
+  streak    Int        @default(0)
+  createdAt DateTime   @default(now())
+  logs      HabitLog[]
+}
+
+model HabitLog {
+  id        String  @id @default(cuid())
+  habitId   String
+  date      String
+  completed Boolean @default(false)
+  habit     Habit   @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, date])
+}
+
+model Event {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime?
+  allDay      Boolean   @default(false)
+  color       String    @default("#6366f1")
+  taskId      String?
+  createdAt   DateTime  @default(now())
+}
+
+model RoutineBlock {
+  id        String   @id @default(cuid())
+  title     String
+  timeSlot  String
+  startTime String
+  endTime   String
+  activity  String
+  recurring Boolean  @default(true)
+  dayOfWeek String?
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+}
