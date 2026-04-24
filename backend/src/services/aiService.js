@@ -1,7 +1,7 @@
 const fetch = require('node-fetch');
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
+const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 const SYSTEM_PROMPT =
   'Eres un asistente personal inteligente. Analiza las tareas, hábitos y eventos del usuario y proporciona sugerencias concretas y accionables para organizar su día. Responde SIEMPRE en español y SOLO con el JSON solicitado, sin texto adicional.';
@@ -21,46 +21,13 @@ async function getSuggestions({ apiKey, model, provider = 'openrouter', tasks = 
   const today = date || new Date().toISOString().slice(0, 10);
   const userContent = buildUserPrompt({ tasks, habits, events, date: today });
 
-  const url = provider === 'gemini' ? GEMINI_URL : OPENROUTER_URL;
+  let raw;
 
-  const headers = {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${apiKey.trim()}`,
-  };
-
-  if (provider === 'openrouter') {
-    headers['HTTP-Referer'] = 'http://localhost:5173';
-    headers['X-Title'] = 'Asistente Personal';
+  if (provider === 'gemini') {
+    raw = await callGemini({ apiKey: apiKey.trim(), model: model.trim(), userContent });
+  } else {
+    raw = await callOpenRouter({ apiKey: apiKey.trim(), model: model.trim(), userContent });
   }
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      model: model.trim(),
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: userContent },
-      ],
-      temperature: 0.7,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorBody = await response.json().catch(() => ({}));
-    const meta = errorBody?.error?.metadata;
-    const message =
-      meta?.raw ||
-      (meta?.provider_name ? `${meta.provider_name}: ${errorBody?.error?.message}` : null) ||
-      errorBody?.error?.message ||
-      `${provider} status ${response.status}`;
-    const err = new Error(message);
-    err.status = response.status === 401 ? 401 : 502;
-    throw err;
-  }
-
-  const json = await response.json();
-  const raw = json.choices?.[0]?.message?.content;
 
   if (!raw) {
     const err = new Error('Respuesta vacía del modelo');
@@ -87,6 +54,67 @@ async function getSuggestions({ apiKey, model, provider = 'openrouter', tasks = 
     timeBlocks: parsed.timeBlocks || parsed.time_blocks || [],
     motivationalMessage: parsed.motivationalMessage || parsed.motivational_message || '',
   };
+}
+
+async function callOpenRouter({ apiKey, model, userContent }) {
+  const response = await fetch(OPENROUTER_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+      'HTTP-Referer': 'http://localhost:5173',
+      'X-Title': 'Asistente Personal',
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: userContent },
+      ],
+      temperature: 0.7,
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    const meta = body?.error?.metadata;
+    const message =
+      meta?.raw ||
+      (meta?.provider_name ? `${meta.provider_name}: ${body?.error?.message}` : null) ||
+      body?.error?.message ||
+      `OpenRouter status ${response.status}`;
+    const err = new Error(message);
+    err.status = response.status === 401 ? 401 : 502;
+    throw err;
+  }
+
+  const json = await response.json();
+  return json.choices?.[0]?.message?.content || '';
+}
+
+async function callGemini({ apiKey, model, userContent }) {
+  const url = `${GEMINI_BASE_URL}/${model}:generateContent?key=${apiKey}`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      contents: [{ role: 'user', parts: [{ text: userContent }] }],
+      generationConfig: { temperature: 0.7 },
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    const message = body?.error?.message || `Gemini status ${response.status}`;
+    const err = new Error(message);
+    err.status = response.status === 401 ? 401 : 502;
+    throw err;
+  }
+
+  const json = await response.json();
+  return json.candidates?.[0]?.content?.parts?.[0]?.text || '';
 }
 
 function buildUserPrompt({ tasks, habits, events, date }) {

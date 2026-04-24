@@ -121,7 +121,9 @@ export default function AIAssistant({ isOpen, onClose, tasks, habits, events }) 
 
           {error === 'api_error' && (
             <div className="bg-red-50 border border-red-100 rounded-xl p-4 mb-5">
-              <p className="text-sm font-medium text-red-700 mb-1">Error al conectar con OpenRouter</p>
+              <p className="text-sm font-medium text-red-700 mb-1">
+                Error al conectar con {provider === 'gemini' ? 'Google Gemini' : 'OpenRouter'}
+              </p>
               {errorMsg && (
                 <p className="text-xs text-red-600 font-mono break-all">{errorMsg}</p>
               )}
