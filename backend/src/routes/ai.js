@@ -25,4 +25,15 @@ router.post('/chat', async (req, res, next) => {
   }
 });
 
+// POST /api/ai/models — list models available for the user's apiKey
+router.post('/models', async (req, res, next) => {
+  try {
+    const { apiKey, provider } = req.body;
+    const result = await aiService.listModels({ apiKey, provider });
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;

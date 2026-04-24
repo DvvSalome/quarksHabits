@@ -255,4 +255,50 @@ function buildAnalyzePrompt({ tasks, habits, events, date }) {
   return lines.join('\n');
 }
 
-module.exports = { getSuggestions, getChatReply };
+async function listModels({ apiKey, provider = 'openrouter' }) {
+  if (!apiKey || apiKey.trim() === '') {
+    const err = new Error('apiKey es requerido');
+    err.status = 400;
+    throw err;
+  }
+
+  if (provider === 'gemini') {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models', {
+      headers: { 'x-goog-api-key': apiKey.trim() },
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      const rootError = Array.isArray(body) ? body[0]?.error : body?.error;
+      const err = new Error(rootError?.message || `Gemini status ${response.status}`);
+      err.status = response.status === 401 ? 401 : 502;
+      throw err;
+    }
+    const json = await response.json();
+    const models = (json.models || [])
+      .filter((m) => (m.supportedGenerationMethods || []).includes('generateContent'))
+      .map((m) => ({
+        id: m.name.replace(/^models\//, ''),
+        label: m.displayName || m.name,
+      }))
+      .sort((a, b) => a.id.localeCompare(b.id));
+    return { models };
+  }
+
+  // OpenRouter
+  const response = await fetch('https://openrouter.ai/api/v1/models', {
+    headers: { Authorization: `Bearer ${apiKey.trim()}` },
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    const err = new Error(body?.error?.message || `OpenRouter status ${response.status}`);
+    err.status = response.status === 401 ? 401 : 502;
+    throw err;
+  }
+  const json = await response.json();
+  const models = (json.data || [])
+    .map((m) => ({ id: m.id, label: m.name || m.id }))
+    .sort((a, b) => a.id.localeCompare(b.id));
+  return { models };
+}
+
+module.exports = { getSuggestions, getChatReply, listModels };

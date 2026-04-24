@@ -1,22 +1,22 @@
 import { useState, useEffect } from 'react'
-import { Key, CheckCircle, XCircle, ExternalLink } from 'lucide-react'
+import { Key, CheckCircle, XCircle, ExternalLink, RefreshCw, Loader2 } from 'lucide-react'
 import Button from '../ui/Button'
 import Input from '../ui/Input'
 import Card from '../ui/Card'
 import toast from 'react-hot-toast'
+import client from '../../api/client'
 
 const PROVIDERS = {
   openrouter: {
     label: 'OpenRouter',
     url: 'https://openrouter.ai/keys',
     placeholder: 'sk-or-...',
-    models: [
+    fallbackModels: [
       { id: 'meta-llama/llama-3.3-70b-instruct:free', label: 'Llama 3.3 70B (gratis)' },
       { id: 'mistralai/mistral-7b-instruct:free', label: 'Mistral 7B (gratis)' },
       { id: 'google/gemma-3-12b-it:free', label: 'Gemma 3 12B (gratis)' },
       { id: 'openai/gpt-4o-mini', label: 'GPT-4o mini' },
       { id: 'openai/gpt-4o', label: 'GPT-4o' },
-      { id: 'anthropic/claude-3-haiku', label: 'Claude 3 Haiku' },
       { id: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet' },
     ],
   },
@@ -24,12 +24,13 @@ const PROVIDERS = {
     label: 'Google Gemini',
     url: 'https://aistudio.google.com/app/apikey',
     placeholder: 'AIza...',
-    models: [
-      { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash (gratis)' },
-      { id: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite (gratis)' },
-      { id: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash (gratis)' },
-      { id: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
-      { id: 'gemini-2.5-pro-preview-03-25', label: 'Gemini 2.5 Pro' },
+    fallbackModels: [
+      { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+      { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+      { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+      { id: 'gemini-2.0-flash-001', label: 'Gemini 2.0 Flash 001' },
+      { id: 'gemini-1.5-flash-latest', label: 'Gemini 1.5 Flash latest' },
+      { id: 'gemini-1.5-pro-latest', label: 'Gemini 1.5 Pro latest' },
     ],
   },
 }
@@ -38,6 +39,8 @@ export default function AISettings() {
   const [provider, setProvider] = useState('openrouter')
   const [keys, setKeys] = useState({ openrouter: '', gemini: '' })
   const [models, setModels] = useState({ openrouter: '', gemini: '' })
+  const [availableModels, setAvailableModels] = useState({ openrouter: null, gemini: null })
+  const [loadingModels, setLoadingModels] = useState(false)
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
@@ -88,14 +91,37 @@ export default function AISettings() {
     localStorage.removeItem('ai_gemini_model')
     setKeys({ openrouter: '', gemini: '' })
     setModels({ openrouter: '', gemini: '' })
+    setAvailableModels({ openrouter: null, gemini: null })
     setSaved(false)
     toast.success('Configuración eliminada')
+  }
+
+  const handleRefreshModels = async () => {
+    const key = keys[provider]
+    if (!key.trim()) {
+      toast.error(`Ingresa tu API Key primero`)
+      return
+    }
+    setLoadingModels(true)
+    try {
+      const res = await client.post('/ai/models', { apiKey: key.trim(), provider })
+      setAvailableModels((prev) => ({ ...prev, [provider]: res.data.models }))
+      toast.success(`${res.data.models.length} modelos disponibles`)
+    } catch {
+      // Error already shown by axios interceptor
+    } finally {
+      setLoadingModels(false)
+    }
   }
 
   const activeKey = keys[provider]
   const activeModel = models[provider]
   const isConfigured = saved && !!activeKey && !!activeModel
   const cfg = PROVIDERS[provider]
+
+  // Show live models if fetched, otherwise fallback
+  const displayModels = availableModels[provider] || cfg.fallbackModels
+  const usingLiveList = !!availableModels[provider]
 
   return (
     <Card>
@@ -163,15 +189,30 @@ export default function AISettings() {
         </div>
 
         <div>
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-sm font-medium text-gray-700">Modelo</label>
+            <button
+              type="button"
+              onClick={handleRefreshModels}
+              disabled={loadingModels || !activeKey}
+              className="text-xs text-indigo-500 hover:text-indigo-700 disabled:text-gray-300 disabled:cursor-not-allowed flex items-center gap-1"
+            >
+              {loadingModels ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <RefreshCw className="w-3 h-3" />
+              )}
+              {usingLiveList ? 'Actualizar lista' : 'Ver modelos disponibles'}
+            </button>
+          </div>
           <Input
-            label="Modelo"
             type="text"
             value={activeModel}
             onChange={(e) => { setModels((m) => ({ ...m, [provider]: e.target.value })); setSaved(false) }}
-            placeholder={cfg.models[0]?.id}
+            placeholder={displayModels[0]?.id}
           />
-          <div className="flex flex-wrap gap-1.5 mt-2">
-            {cfg.models.map((m) => (
+          <div className="flex flex-wrap gap-1.5 mt-2 max-h-32 overflow-y-auto">
+            {displayModels.map((m) => (
               <button
                 key={m.id}
                 onClick={() => { setModels((prev) => ({ ...prev, [provider]: m.id })); setSaved(false) }}
@@ -180,11 +221,17 @@ export default function AISettings() {
                     ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-medium'
                     : 'border-gray-200 text-gray-500 hover:border-indigo-200 hover:text-indigo-600'
                 }`}
+                title={m.id}
               >
                 {m.label}
               </button>
             ))}
           </div>
+          {usingLiveList && (
+            <p className="text-xs text-green-600 mt-1">
+              ✓ Mostrando {displayModels.length} modelos disponibles con tu API key
+            </p>
+          )}
         </div>
 
         <p className="text-xs text-gray-400">
