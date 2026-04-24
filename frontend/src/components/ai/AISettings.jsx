@@ -5,85 +5,135 @@ import Input from '../ui/Input'
 import Card from '../ui/Card'
 import toast from 'react-hot-toast'
 
-const MODEL_SUGGESTIONS = [
-  'openai/gpt-4o-mini',
-  'openai/gpt-4o',
-  'anthropic/claude-3-haiku',
-  'anthropic/claude-3.5-sonnet',
-  'google/gemini-flash-1.5',
-  'meta-llama/llama-3.1-8b-instruct',
-]
+const PROVIDERS = {
+  openrouter: {
+    label: 'OpenRouter',
+    url: 'https://openrouter.ai/keys',
+    placeholder: 'sk-or-...',
+    models: [
+      { id: 'meta-llama/llama-3.3-70b-instruct:free', label: 'Llama 3.3 70B (gratis)' },
+      { id: 'mistralai/mistral-7b-instruct:free', label: 'Mistral 7B (gratis)' },
+      { id: 'google/gemma-3-12b-it:free', label: 'Gemma 3 12B (gratis)' },
+      { id: 'openai/gpt-4o-mini', label: 'GPT-4o mini' },
+      { id: 'openai/gpt-4o', label: 'GPT-4o' },
+      { id: 'anthropic/claude-3-haiku', label: 'Claude 3 Haiku' },
+      { id: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet' },
+    ],
+  },
+  gemini: {
+    label: 'Google Gemini',
+    url: 'https://aistudio.google.com/app/apikey',
+    placeholder: 'AIza...',
+    models: [
+      { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash (gratis)' },
+      { id: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite (gratis)' },
+      { id: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash (gratis)' },
+      { id: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
+      { id: 'gemini-2.5-pro-preview-03-25', label: 'Gemini 2.5 Pro' },
+    ],
+  },
+}
 
 export default function AISettings() {
-  const [apiKey, setApiKey] = useState('')
-  const [model, setModel] = useState('')
+  const [provider, setProvider] = useState('openrouter')
+  const [keys, setKeys] = useState({ openrouter: '', gemini: '' })
+  const [models, setModels] = useState({ openrouter: '', gemini: '' })
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
-    const storedKey = localStorage.getItem('ai_api_key')
-    const storedModel = localStorage.getItem('ai_model')
-    if (storedKey) setApiKey(storedKey)
-    if (storedModel) setModel(storedModel)
-    if (storedKey && storedModel) setSaved(true)
+    const storedProvider = localStorage.getItem('ai_provider') || 'openrouter'
+    const storedOrKey = localStorage.getItem('ai_api_key') || ''
+    const storedOrModel = localStorage.getItem('ai_model') || ''
+    const storedGeminiKey = localStorage.getItem('ai_gemini_key') || ''
+    const storedGeminiModel = localStorage.getItem('ai_gemini_model') || ''
+
+    setProvider(storedProvider)
+    setKeys({ openrouter: storedOrKey, gemini: storedGeminiKey })
+    setModels({ openrouter: storedOrModel, gemini: storedGeminiModel })
+
+    const activeKey = storedProvider === 'gemini' ? storedGeminiKey : storedOrKey
+    const activeModel = storedProvider === 'gemini' ? storedGeminiModel : storedOrModel
+    if (activeKey && activeModel) setSaved(true)
   }, [])
 
   const handleSave = () => {
-    if (!apiKey.trim()) {
-      toast.error('Ingresa una API Key de OpenRouter')
+    const key = keys[provider]
+    const model = models[provider]
+    if (!key.trim()) {
+      toast.error(`Ingresa una API Key de ${PROVIDERS[provider].label}`)
       return
     }
     if (!model.trim()) {
-      toast.error('Especifica el modelo a usar')
+      toast.error('Selecciona o escribe un modelo')
       return
     }
-    localStorage.setItem('ai_api_key', apiKey.trim())
-    localStorage.setItem('ai_model', model.trim())
+
+    localStorage.setItem('ai_provider', provider)
+    if (provider === 'gemini') {
+      localStorage.setItem('ai_gemini_key', key.trim())
+      localStorage.setItem('ai_gemini_model', model.trim())
+    } else {
+      localStorage.setItem('ai_api_key', key.trim())
+      localStorage.setItem('ai_model', model.trim())
+    }
     setSaved(true)
     toast.success('Configuración guardada')
   }
 
   const handleClear = () => {
+    localStorage.removeItem('ai_provider')
     localStorage.removeItem('ai_api_key')
     localStorage.removeItem('ai_model')
-    setApiKey('')
-    setModel('')
+    localStorage.removeItem('ai_gemini_key')
+    localStorage.removeItem('ai_gemini_model')
+    setKeys({ openrouter: '', gemini: '' })
+    setModels({ openrouter: '', gemini: '' })
     setSaved(false)
     toast.success('Configuración eliminada')
   }
 
-  const isConfigured = saved && !!apiKey && !!model
+  const activeKey = keys[provider]
+  const activeModel = models[provider]
+  const isConfigured = saved && !!activeKey && !!activeModel
+  const cfg = PROVIDERS[provider]
 
   return (
     <Card>
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex items-center gap-3 mb-5">
         <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center">
           <Key className="w-5 h-5 text-indigo-600" />
         </div>
         <div>
           <h3 className="text-base font-semibold text-gray-900">Asistente de IA</h3>
-          <p className="text-sm text-gray-500">
-            Conecta con{' '}
-            <a
-              href="https://openrouter.ai"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-indigo-600 hover:underline inline-flex items-center gap-0.5"
-            >
-              OpenRouter <ExternalLink className="w-3 h-3" />
-            </a>
-            {' '}para análisis inteligente
-          </p>
+          <p className="text-sm text-gray-500">Elige tu proveedor y modelo</p>
         </div>
       </div>
 
+      {/* Provider tabs */}
+      <div className="flex gap-1 p-1 bg-gray-100 rounded-xl mb-5">
+        {Object.entries(PROVIDERS).map(([key, p]) => (
+          <button
+            key={key}
+            onClick={() => { setProvider(key); setSaved(false) }}
+            className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+              provider === key
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
       {/* Status */}
-      <div className={`flex items-center gap-2 px-3 py-2 rounded-xl mb-5 text-sm ${
+      <div className={`flex items-center gap-2 px-3 py-2 rounded-xl mb-4 text-sm ${
         isConfigured ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-500'
       }`}>
         {isConfigured ? (
           <>
             <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
-            <span>Configurado — usando <span className="font-mono font-medium">{model}</span></span>
+            <span>Configurado — <span className="font-mono font-medium">{activeModel}</span></span>
           </>
         ) : (
           <>
@@ -94,50 +144,60 @@ export default function AISettings() {
       </div>
 
       <div className="flex flex-col gap-4">
-        <Input
-          label="OpenRouter API Key"
-          type="password"
-          value={apiKey}
-          onChange={(e) => { setApiKey(e.target.value); setSaved(false) }}
-          placeholder="sk-or-..."
-        />
+        <div>
+          <Input
+            label={`${cfg.label} API Key`}
+            type="password"
+            value={activeKey}
+            onChange={(e) => { setKeys((k) => ({ ...k, [provider]: e.target.value })); setSaved(false) }}
+            placeholder={cfg.placeholder}
+          />
+          <a
+            href={cfg.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-indigo-500 hover:underline mt-1"
+          >
+            Obtener API Key <ExternalLink className="w-3 h-3" />
+          </a>
+        </div>
 
         <div>
           <Input
             label="Modelo"
             type="text"
-            value={model}
-            onChange={(e) => { setModel(e.target.value); setSaved(false) }}
-            placeholder="openai/gpt-4o-mini"
+            value={activeModel}
+            onChange={(e) => { setModels((m) => ({ ...m, [provider]: e.target.value })); setSaved(false) }}
+            placeholder={cfg.models[0]?.id}
           />
           <div className="flex flex-wrap gap-1.5 mt-2">
-            {MODEL_SUGGESTIONS.map((m) => (
+            {cfg.models.map((m) => (
               <button
-                key={m}
-                onClick={() => { setModel(m); setSaved(false) }}
-                className={`text-xs px-2 py-1 rounded-lg border transition-colors font-mono ${
-                  model === m
-                    ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                key={m.id}
+                onClick={() => { setModels((prev) => ({ ...prev, [provider]: m.id })); setSaved(false) }}
+                className={`text-xs px-2 py-1 rounded-lg border transition-colors ${
+                  activeModel === m.id
+                    ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-medium'
                     : 'border-gray-200 text-gray-500 hover:border-indigo-200 hover:text-indigo-600'
                 }`}
               >
-                {m}
+                {m.label}
               </button>
             ))}
           </div>
         </div>
 
         <p className="text-xs text-gray-400">
-          Tu API Key y modelo se guardan únicamente en este navegador (localStorage) y nunca pasan por ningún servidor externo salvo OpenRouter.
+          Tus claves se guardan solo en este navegador y solo se envían al proveedor elegido.
         </p>
 
         <div className="flex gap-3">
           <Button onClick={handleSave} className="flex-1">
             Guardar configuración
           </Button>
-          {(apiKey || model) && (
+          {(activeKey || activeModel) && (
             <Button variant="danger" onClick={handleClear}>
-              Limpiar
+              Limpiar todo
             </Button>
           )}
         </div>

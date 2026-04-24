@@ -10,18 +10,26 @@ export default function AIAssistant({ isOpen, onClose, tasks, habits, events }) 
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
+  const [errorMsg, setErrorMsg] = useState('')
 
-  const apiKey = localStorage.getItem('ai_api_key')
-  const aiModel = localStorage.getItem('ai_model')
   const today = new Date()
 
   const analyze = async () => {
+    const provider = localStorage.getItem('ai_provider') || 'openrouter'
+    const apiKey = provider === 'gemini'
+      ? localStorage.getItem('ai_gemini_key')
+      : localStorage.getItem('ai_api_key')
+    const aiModel = provider === 'gemini'
+      ? localStorage.getItem('ai_gemini_model')
+      : localStorage.getItem('ai_model')
+
     if (!apiKey || !aiModel) {
       setError('no_key')
       return
     }
     setLoading(true)
     setError(null)
+    setErrorMsg('')
     setResult(null)
     try {
       const todayStr = format(today, 'yyyy-MM-dd')
@@ -35,6 +43,7 @@ export default function AIAssistant({ isOpen, onClose, tasks, habits, events }) 
       const res = await client.post('/ai/suggest', {
         apiKey,
         model: aiModel,
+        provider,
         tasks: todayTasks,
         habits: todayHabits,
         events: todayEvents,
@@ -42,11 +51,21 @@ export default function AIAssistant({ isOpen, onClose, tasks, habits, events }) 
       })
       setResult(res.data)
     } catch (err) {
+      const msg = err.response?.data?.error || err.message || 'Error desconocido'
       setError('api_error')
+      setErrorMsg(msg)
     } finally {
       setLoading(false)
     }
   }
+
+  const provider = localStorage.getItem('ai_provider') || 'openrouter'
+  const apiKey = provider === 'gemini'
+    ? localStorage.getItem('ai_gemini_key')
+    : localStorage.getItem('ai_api_key')
+  const aiModel = provider === 'gemini'
+    ? localStorage.getItem('ai_gemini_model')
+    : localStorage.getItem('ai_model')
 
   if (!isOpen) return null
 
@@ -102,7 +121,10 @@ export default function AIAssistant({ isOpen, onClose, tasks, habits, events }) 
 
           {error === 'api_error' && (
             <div className="bg-red-50 border border-red-100 rounded-xl p-4 mb-5">
-              <p className="text-sm text-red-700">Error al conectar con la IA. Verifica tu API Key y vuelve a intentarlo.</p>
+              <p className="text-sm font-medium text-red-700 mb-1">Error al conectar con OpenRouter</p>
+              {errorMsg && (
+                <p className="text-xs text-red-600 font-mono break-all">{errorMsg}</p>
+              )}
             </div>
           )}
 

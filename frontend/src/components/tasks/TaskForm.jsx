@@ -5,7 +5,7 @@ import Input, { Select, Textarea } from '../ui/Input'
 const defaultForm = {
   title: '',
   description: '',
-  priority: 'media',
+  priority: 'medium',
   category: '',
   tags: '',
   dueDate: '',
@@ -73,9 +73,9 @@ export default function TaskForm({ initial, onSubmit, onCancel }) {
       />
       <div className="grid grid-cols-2 gap-4">
         <Select label="Prioridad" value={form.priority} onChange={set('priority')}>
-          <option value="alta">Alta</option>
-          <option value="media">Media</option>
-          <option value="baja">Baja</option>
+          <option value="high">Alta</option>
+          <option value="medium">Media</option>
+          <option value="low">Baja</option>
         </Select>
         <Input
           label="Categoría"

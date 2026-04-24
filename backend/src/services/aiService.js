@@ -1,19 +1,19 @@
 const fetch = require('node-fetch');
 
-const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
 
 const SYSTEM_PROMPT =
   'Eres un asistente personal inteligente. Analiza las tareas, hábitos y eventos del usuario y proporciona sugerencias concretas y accionables para organizar su día. Responde SIEMPRE en español y SOLO con el JSON solicitado, sin texto adicional.';
 
-async function getSuggestions({ apiKey, model, tasks = [], habits = [], events = [], date }) {
+async function getSuggestions({ apiKey, model, provider = 'openrouter', tasks = [], habits = [], events = [], date }) {
   if (!apiKey || apiKey.trim() === '') {
     const err = new Error('apiKey es requerido');
     err.status = 400;
     throw err;
   }
-
   if (!model || model.trim() === '') {
-    const err = new Error('model es requerido (ej: openai/gpt-4o-mini, anthropic/claude-haiku)');
+    const err = new Error('model es requerido');
     err.status = 400;
     throw err;
   }
@@ -21,14 +21,21 @@ async function getSuggestions({ apiKey, model, tasks = [], habits = [], events =
   const today = date || new Date().toISOString().slice(0, 10);
   const userContent = buildUserPrompt({ tasks, habits, events, date: today });
 
-  const response = await fetch(OPENROUTER_API_URL, {
+  const url = provider === 'gemini' ? GEMINI_URL : OPENROUTER_URL;
+
+  const headers = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${apiKey.trim()}`,
+  };
+
+  if (provider === 'openrouter') {
+    headers['HTTP-Referer'] = 'http://localhost:5173';
+    headers['X-Title'] = 'Asistente Personal';
+  }
+
+  const response = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey.trim()}`,
-      'HTTP-Referer': 'http://localhost:5173',
-      'X-Title': 'Asistente Personal',
-    },
+    headers,
     body: JSON.stringify({
       model: model.trim(),
       messages: [
@@ -41,8 +48,12 @@ async function getSuggestions({ apiKey, model, tasks = [], habits = [], events =
 
   if (!response.ok) {
     const errorBody = await response.json().catch(() => ({}));
+    const meta = errorBody?.error?.metadata;
     const message =
-      errorBody?.error?.message || `OpenRouter devolvió status ${response.status}`;
+      meta?.raw ||
+      (meta?.provider_name ? `${meta.provider_name}: ${errorBody?.error?.message}` : null) ||
+      errorBody?.error?.message ||
+      `${provider} status ${response.status}`;
     const err = new Error(message);
     err.status = response.status === 401 ? 401 : 502;
     throw err;
@@ -72,8 +83,7 @@ async function getSuggestions({ apiKey, model, tasks = [], habits = [], events =
 
   return {
     dailySuggestion: parsed.dailySuggestion || parsed.daily_suggestion || '',
-    priorityRecommendations:
-      parsed.priorityRecommendations || parsed.priority_recommendations || [],
+    priorityRecommendations: parsed.priorityRecommendations || parsed.priority_recommendations || [],
     timeBlocks: parsed.timeBlocks || parsed.time_blocks || [],
     motivationalMessage: parsed.motivationalMessage || parsed.motivational_message || '',
   };
@@ -96,9 +106,7 @@ function buildUserPrompt({ tasks, habits, events, date }) {
     ...completedTasks.map((t) => `- ✓ ${t.title}`),
     '',
     `## Hábitos (${habits.length})`,
-    ...habits.map(
-      (h) => `- ${h.name} (${h.frequency}) — racha actual: ${h.streak || 0} días`
-    ),
+    ...habits.map((h) => `- ${h.name} (${h.frequency}) — racha actual: ${h.streak || 0} días`),
     '',
     `## Eventos de hoy (${events.length})`,
     ...events.map(
