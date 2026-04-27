@@ -7,6 +7,7 @@ const habitsRouter = require('./routes/habits');
 const eventsRouter = require('./routes/events');
 const routineRouter = require('./routes/routine');
 const aiRouter = require('./routes/ai');
+const contentRouter = require('./routes/content');
 
 const app = express();
 
@@ -32,6 +33,7 @@ app.use('/api/habits', habitsRouter);
 app.use('/api/events', eventsRouter);
 app.use('/api/routine', routineRouter);
 app.use('/api/ai', aiRouter);
+app.use('/api/content', contentRouter);
 
 // 404 for unknown API routes
 app.use('/api/*', (req, res) => {

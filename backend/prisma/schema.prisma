@@ -53,15 +53,30 @@ model Event {
   createdAt   DateTime  @default(now())
 }
 
+model Content {
+  id           String   @id @default(cuid())
+  templateType String
+  topic        String
+  audience     String?
+  tone         String?
+  body         String
+  starred      Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
 model RoutineBlock {
-  id        String   @id @default(cuid())
-  title     String
-  timeSlot  String
-  startTime String
-  endTime   String
-  activity  String
-  recurring Boolean  @default(true)
-  dayOfWeek String?
-  order     Int      @default(0)
-  createdAt DateTime @default(now())
+  id          String    @id @default(cuid())
+  title       String
+  timeSlot    String
+  startTime   String?
+  endTime     String?
+  activity    String
+  recurring   Boolean   @default(true)
+  dayOfWeek   String?
+  planDate    String?
+  order       Int       @default(0)
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
 }

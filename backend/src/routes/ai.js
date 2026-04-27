@@ -3,6 +3,17 @@ const aiService = require('../services/aiService');
 
 const router = Router();
 
+// POST /api/ai/review — personalized period review narrative
+router.post('/review', async (req, res, next) => {
+  try {
+    const { apiKey, model, provider, period, completedTasks, habitCount, habitLogsCompleted, expectedHabitLogs, eventCount, maxStreak } = req.body;
+    const result = await aiService.getWeeklyReview({ apiKey, model, provider, period, completedTasks, habitCount, habitLogsCompleted, expectedHabitLogs, eventCount, maxStreak });
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /api/ai/suggest — structured daily analysis
 router.post('/suggest', async (req, res, next) => {
   try {
@@ -20,6 +31,17 @@ router.post('/chat', async (req, res, next) => {
     const { apiKey, model, provider, messages, context } = req.body;
     const reply = await aiService.getChatReply({ apiKey, model, provider, messages, context });
     res.json(reply);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/ai/plan — suggest time blocks for tomorrow's plan
+router.post('/plan', async (req, res, next) => {
+  try {
+    const { apiKey, model, provider, date, currentBlocks, pendingTasks, tomorrowEvents, habits } = req.body;
+    const result = await aiService.getPlanSuggestions({ apiKey, model, provider, date, currentBlocks, pendingTasks, tomorrowEvents, habits });
+    res.json(result);
   } catch (err) {
     next(err);
   }

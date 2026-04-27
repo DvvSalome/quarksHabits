@@ -1,7 +1,16 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git init *)"
+      "Bash(git init *)",
+      "Bash(kill 9543)",
+      "Bash(npm start *)",
+      "Bash(curl -s http://localhost:3001/api/health)",
+      "Bash(npm run *)",
+      "Bash(pkill -f \"node server.js\")",
+      "Bash(npx prisma *)",
+      "Bash(curl -X POST http://localhost:3001/api/routine -H 'Content-Type: application/json' -d '{ *)",
+      "Bash(curl *)",
+      "Bash(node *)"
     ]
   }
 }

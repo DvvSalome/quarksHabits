@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import client from '../api/client'
 
-export function useRoutine() {
+export function useRoutine({ planDate } = {}) {
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -10,28 +10,41 @@ export function useRoutine() {
     try {
       setLoading(true)
       setError(null)
-      const res = await client.get('/routine')
+      const params = planDate ? `?planDate=${planDate}` : ''
+      const res = await client.get(`/routine${params}`)
       setData(res.data || [])
     } catch (err) {
       setError(err.message)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [planDate])
 
   useEffect(() => {
     fetchRoutine()
   }, [fetchRoutine])
 
   const create = useCallback(async (blockData) => {
-    const res = await client.post('/routine', blockData)
-    setData((prev) => [...prev, res.data])
+    const payload = planDate ? { ...blockData, planDate } : blockData
+    const res = await client.post('/routine', payload)
+    setData((prev) => [...prev, res.data].sort((a, b) => {
+      const aTime = a.startTime || ''
+      const bTime = b.startTime || ''
+      return aTime.localeCompare(bTime)
+    }))
     return res.data
-  }, [])
+  }, [planDate])
 
   const update = useCallback(async (id, blockData) => {
     const res = await client.put(`/routine/${id}`, blockData)
-    setData((prev) => prev.map((b) => (b._id === id || b.id === id ? res.data : b)))
+    setData((prev) =>
+      prev.map((b) => (b._id === id || b.id === id ? res.data : b))
+        .sort((a, b) => {
+          const aTime = a.startTime || ''
+          const bTime = b.startTime || ''
+          return aTime.localeCompare(bTime)
+        })
+    )
     return res.data
   }, [])
 
@@ -40,5 +53,11 @@ export function useRoutine() {
     setData((prev) => prev.filter((b) => b._id !== id && b.id !== id))
   }, [])
 
-  return { data, loading, error, refetch: fetchRoutine, create, update, delete: remove }
+  const toggleComplete = useCallback(async (id, completed) => {
+    const res = await client.put(`/routine/${id}`, { completed })
+    setData((prev) => prev.map((b) => (b._id === id || b.id === id ? res.data : b)))
+    return res.data
+  }, [])
+
+  return { data, loading, error, refetch: fetchRoutine, create, update, delete: remove, toggleComplete }
 }

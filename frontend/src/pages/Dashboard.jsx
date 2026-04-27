@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react'
 import { format, isToday, parseISO, isValid } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Sparkles, CheckCircle2, Repeat, Calendar, Flame } from 'lucide-react'
+import { CheckCircle2, Repeat, Calendar, Flame, Cpu } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import { useTasks } from '../hooks/useTasks'
 import { useHabits } from '../hooks/useHabits'
 import { useEvents } from '../hooks/useEvents'
@@ -23,13 +24,17 @@ function parseDate(val) {
 
 function StatCard({ icon: Icon, label, value, color }) {
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${color}`}>
+    <motion.div 
+      whileHover={{ scale: 1.02 }}
+      className="glass-panel rounded-2xl p-5 shadow-sm relative overflow-hidden group"
+    >
+      <div className="absolute top-0 right-0 w-16 h-16 bg-cyan-500/10 rounded-bl-full pointer-events-none group-hover:bg-cyan-500/20 transition-colors" />
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 border ${color}`}>
         <Icon className="w-5 h-5" />
       </div>
-      <p className="text-2xl font-bold text-gray-900">{value}</p>
-      <p className="text-xs text-gray-500 mt-0.5">{label}</p>
-    </div>
+      <p className="text-3xl font-bold text-cyan-50 font-mono tracking-wider">{value}</p>
+      <p className="text-xs text-cyan-400/70 mt-1 uppercase tracking-widest">{label}</p>
+    </motion.div>
   )
 }
 
@@ -43,24 +48,40 @@ function LoadingRow() {
   )
 }
 
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+}
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0 }
+}
+
 export default function Dashboard() {
   const [aiOpen, setAiOpen] = useState(false)
   const navigate = useNavigate()
   const tasks = useTasks()
   const habits = useHabits()
   const events = useEvents()
-  const routine = useRoutine()
 
   const today = new Date()
+  const todayStr = format(today, 'yyyy-MM-dd')
+  const routine = useRoutine({ planDate: todayStr })
 
   const greeting = useMemo(() => {
     const hour = today.getHours()
-    if (hour < 12) return 'Buenos días'
-    if (hour < 19) return 'Buenas tardes'
-    return 'Buenas noches'
+    if (hour < 12) return 'Good Morning'
+    if (hour < 19) return 'Good Afternoon'
+    return 'Good Evening'
   }, [])
 
-  const dateStr = format(today, "EEEE d 'de' MMMM", { locale: es })
+  const dateStr = format(today, "EEEE, MMMM do", { locale: es })
 
   const todayTasks = useMemo(() =>
     tasks.data
@@ -103,188 +124,202 @@ export default function Dashboard() {
     [habits.data]
   )
 
-  const todayRoutine = useMemo(() => {
-    const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-    const todayName = DAYS[today.getDay()]
-    return routine.data
-      .filter((b) => {
-        if (!b.dayOfWeek || b.dayOfWeek === 'all') return true
-        try {
-          const parsed = JSON.parse(b.dayOfWeek)
-          if (Array.isArray(parsed)) return parsed.includes(todayName)
-        } catch {}
-        return b.dayOfWeek === todayName
-      })
-      .sort((a, b) => a.startTime?.localeCompare(b.startTime))
-  }, [routine.data])
+  const todayPlan = useMemo(() =>
+    routine.data.sort((a, b) => {
+      const aTime = a.startTime || ''
+      const bTime = b.startTime || ''
+      return aTime.localeCompare(bTime)
+    }),
+    [routine.data]
+  )
 
   const handleToggle = async (id, completed) => {
     try {
       await tasks.toggle(id, completed)
-      toast.success(completed ? 'Tarea completada' : 'Tarea pendiente')
+      toast.success(completed ? 'System updated: Task completed' : 'System updated: Task pending')
     } catch {}
   }
 
   const handleHabitCheckin = async (id, date) => {
     try {
       await habits.checkIn(id, date)
-      toast.success('Hábito registrado')
+      toast.success('Habit protocol logged')
     } catch {}
   }
 
   const handleDeleteTask = async (id) => {
     try {
       await tasks.delete(id)
-      toast.success('Tarea eliminada')
+      toast.success('Task purged')
     } catch {}
   }
 
   const handleDeleteHabit = async (id) => {
     try {
       await habits.delete(id)
-      toast.success('Hábito eliminado')
+      toast.success('Habit purged')
     } catch {}
   }
 
   return (
-    <div className="flex flex-col gap-8">
+    <motion.div 
+      initial="hidden"
+      animate="show"
+      variants={containerVariants}
+      className="flex flex-col gap-8"
+    >
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 capitalize">
-          {greeting}, <span className="text-indigo-600">{dateStr}</span>
+      <motion.div variants={itemVariants} className="relative">
+        <h1 className="text-3xl font-bold text-cyan-50 capitalize glow-text">
+          {greeting}, <span className="text-cyan-400">Commander</span>
         </h1>
-        <p className="text-sm text-gray-500 mt-1">Aquí está el resumen de tu día</p>
-      </div>
+        <p className="text-sm text-cyan-400/60 mt-1 font-mono uppercase tracking-widest">{dateStr} // System Status: Nominal</p>
+      </motion.div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           icon={CheckCircle2}
-          label="Tareas completadas hoy"
+          label="Tasks Completed"
           value={completedToday}
-          color="bg-green-50 text-green-600"
+          color="bg-green-950/50 text-green-400 border-green-500/30"
         />
         <StatCard
           icon={Repeat}
-          label="Hábitos del día"
+          label="Active Habits"
           value={habits.data.length}
-          color="bg-indigo-50 text-indigo-600"
+          color="bg-indigo-950/50 text-indigo-400 border-indigo-500/30"
         />
         <StatCard
           icon={Calendar}
-          label="Eventos hoy"
+          label="Events Today"
           value={todayEvents.length}
-          color="bg-blue-50 text-blue-600"
+          color="bg-blue-950/50 text-blue-400 border-blue-500/30"
         />
         <StatCard
           icon={Flame}
-          label="Racha máxima"
+          label="Max Streak"
           value={maxStreak}
-          color="bg-orange-50 text-orange-500"
+          color="bg-orange-950/50 text-orange-400 border-orange-500/30"
         />
-      </div>
+      </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Today's Tasks */}
-        <Card title="Tareas de hoy">
-          {tasks.loading ? (
-            <LoadingRow />
-          ) : todayTasks.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-4">Sin tareas para hoy 🎉</p>
+        <motion.div variants={itemVariants}>
+          <Card title="ACTIVE DIRECTIVES">
+            {tasks.loading ? (
+              <LoadingRow />
+            ) : todayTasks.length === 0 ? (
+              <p className="text-sm text-cyan-500/50 text-center py-4 font-mono uppercase">No active directives</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {todayTasks.map((task) => (
+                  <TaskCard
+                    key={task._id || task.id}
+                    task={task}
+                    onToggle={handleToggle}
+                    onEdit={() => navigate('/tasks')}
+                    onDelete={handleDeleteTask}
+                  />
+                ))}
+              </div>
+            )}
+          </Card>
+        </motion.div>
+
+        {/* Today's Events */}
+        <motion.div variants={itemVariants}>
+          <Card title="SYSTEM TIMELINE">
+            {events.loading ? (
+              <LoadingRow />
+            ) : todayEvents.length === 0 ? (
+              <p className="text-sm text-cyan-500/50 text-center py-4 font-mono uppercase">No scheduled events</p>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {todayEvents.map((event) => {
+                  const start = parseDate(event.startTime)
+                  return (
+                    <div key={event._id || event.id} className="flex items-start gap-3 p-2 rounded-lg hover:bg-cyan-900/20 transition-colors border border-transparent hover:border-cyan-500/20 group">
+                      <div className="text-xs font-mono text-cyan-400 w-12 flex-shrink-0 pt-0.5 group-hover:glow-text">
+                        {start ? format(start, 'HH:mm') : '--:--'}
+                      </div>
+                      <div
+                        className="w-1 self-stretch rounded-full"
+                        style={{ backgroundColor: event.color || '#06b6d4', boxShadow: `0 0 8px ${event.color || '#06b6d4'}` }}
+                      />
+                      <div>
+                        <p className="text-sm font-medium text-cyan-50">{event.title}</p>
+                        {event.description && (
+                          <p className="text-xs text-cyan-400/60 mt-0.5 truncate">{event.description}</p>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </Card>
+        </motion.div>
+      </div>
+
+      {/* Today's Habits */}
+      <motion.div variants={itemVariants}>
+        <Card title="ROUTINE PROTOCOLS">
+          {habits.loading ? (
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3].map((i) => <div key={i} className="h-40 skeleton rounded-2xl" />)}
+            </div>
+          ) : habits.data.length === 0 ? (
+            <p className="text-sm text-cyan-500/50 text-center py-4 font-mono uppercase">No protocols initialized</p>
           ) : (
-            <div className="flex flex-col gap-2">
-              {todayTasks.map((task) => (
-                <TaskCard
-                  key={task._id || task.id}
-                  task={task}
-                  onToggle={handleToggle}
-                  onEdit={() => navigate('/tasks')}
-                  onDelete={handleDeleteTask}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {habits.data.map((habit) => (
+                <HabitCard
+                  key={habit._id || habit.id}
+                  habit={habit}
+                  onCheckIn={handleHabitCheckin}
+                  onEdit={() => navigate('/habits')}
+                  onDelete={handleDeleteHabit}
                 />
               ))}
             </div>
           )}
         </Card>
+      </motion.div>
 
-        {/* Today's Events */}
-        <Card title="Agenda del día">
-          {events.loading ? (
-            <LoadingRow />
-          ) : todayEvents.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-4">Sin eventos hoy</p>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {todayEvents.map((event) => {
-                const start = parseDate(event.startTime)
-                return (
-                  <div key={event._id || event.id} className="flex items-start gap-3">
-                    <div className="text-xs font-mono text-gray-400 w-12 flex-shrink-0 pt-0.5">
-                      {start ? format(start, 'HH:mm') : '--:--'}
-                    </div>
-                    <div
-                      className="w-1 self-stretch rounded-full"
-                      style={{ backgroundColor: event.color || '#6366f1' }}
-                    />
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{event.title}</p>
-                      {event.description && (
-                        <p className="text-xs text-gray-400 mt-0.5 truncate">{event.description}</p>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
+      {/* Today's Plan */}
+      {todayPlan.length > 0 && (
+        <motion.div variants={itemVariants}>
+          <Card title="EXECUTION PLAN">
+            <div className="flex flex-col gap-2">
+              {todayPlan.map((block) => (
+                <div key={block._id || block.id} className="flex items-center gap-3 py-2 border-b border-cyan-900/30 last:border-0 hover:bg-cyan-900/10 px-2 rounded-lg transition-colors">
+                  <span className="text-xs font-mono text-cyan-400 font-semibold w-24">
+                    {block.startTime}{block.endTime ? ` — ${block.endTime}` : ''}
+                  </span>
+                  <span className="text-sm text-cyan-100">{block.activity}</span>
+                </div>
+              ))}
             </div>
-          )}
-        </Card>
-      </div>
-
-      {/* Today's Habits */}
-      <Card title="Hábitos de hoy">
-        {habits.loading ? (
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-            {[1, 2, 3].map((i) => <div key={i} className="h-40 skeleton rounded-2xl" />)}
-          </div>
-        ) : habits.data.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-4">Sin hábitos configurados</p>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {habits.data.map((habit) => (
-              <HabitCard
-                key={habit._id || habit.id}
-                habit={habit}
-                onCheckIn={handleHabitCheckin}
-                onEdit={() => navigate('/habits')}
-                onDelete={handleDeleteHabit}
-              />
-            ))}
-          </div>
-        )}
-      </Card>
-
-      {/* Routine */}
-      {todayRoutine.length > 0 && (
-        <Card title="Rutina del día">
-          <div className="flex flex-col gap-2">
-            {todayRoutine.map((block) => (
-              <div key={block._id || block.id} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
-                <span className="text-xs font-mono text-gray-400 w-24">
-                  {block.startTime}{block.endTime ? ` — ${block.endTime}` : ''}
-                </span>
-                <span className="text-sm text-gray-700">{block.activity}</span>
-              </div>
-            ))}
-          </div>
-        </Card>
+          </Card>
+        </motion.div>
       )}
 
       {/* Floating AI Button */}
-      <button
+      <motion.button
+        variants={itemVariants}
+        whileHover={{ scale: 1.1, rotate: 90 }}
+        whileTap={{ scale: 0.9 }}
         onClick={() => setAiOpen(true)}
-        className="fixed bottom-8 right-8 w-14 h-14 bg-indigo-600 rounded-2xl shadow-lg hover:bg-indigo-700 transition-all duration-200 hover:scale-105 flex items-center justify-center"
+        className="fixed bottom-8 right-8 w-16 h-16 bg-cyan-950 rounded-full border-2 border-cyan-400 flex items-center justify-center z-40 group overflow-hidden"
+        style={{ boxShadow: '0 0 20px rgba(6,182,212,0.5), inset 0 0 10px rgba(6,182,212,0.3)' }}
       >
-        <Sparkles className="w-6 h-6 text-white" />
-      </button>
+        <div className="absolute inset-0 bg-cyan-400/20 group-hover:bg-cyan-400/40 transition-colors" />
+        <div className="w-12 h-12 border border-cyan-300 rounded-full flex items-center justify-center animate-spin-slow" style={{ animationDuration: '4s' }}>
+          <Cpu className="w-6 h-6 text-cyan-300 group-hover:text-cyan-100 glow-text" />
+        </div>
+      </motion.button>
 
       <AIAssistant
         isOpen={aiOpen}
@@ -292,8 +327,8 @@ export default function Dashboard() {
         tasks={tasks.data}
         habits={habits.data}
         events={events.data}
-        routine={routine.data}
+        routine={todayPlan}
       />
-    </div>
+    </motion.div>
   )
 }

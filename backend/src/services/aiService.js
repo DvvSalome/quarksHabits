@@ -301,4 +301,264 @@ async function listModels({ apiKey, provider = 'openrouter' }) {
   return { models };
 }
 
-module.exports = { getSuggestions, getChatReply, listModels };
+const CONTENT_TEMPLATES = {
+  twitter: {
+    label: 'Hilo de Twitter/X',
+    instructions: 'Genera un hilo de Twitter/X de entre 4 y 8 tweets. Cada tweet máximo 280 caracteres. El primero debe enganchar (hook). Numera los tweets como (1/N), (2/N), etc. Incluye emojis con criterio.',
+  },
+  linkedin: {
+    label: 'Post de LinkedIn',
+    instructions: 'Genera un post de LinkedIn entre 150 y 300 palabras. Estructura: gancho inicial, desarrollo en párrafos cortos (2-3 líneas), conclusión accionable, y 3-5 hashtags al final. Tono profesional pero humano.',
+  },
+  newsletter: {
+    label: 'Newsletter',
+    instructions: 'Genera un email de newsletter entre 300 y 500 palabras. Estructura: asunto atractivo, saludo, hook, 2-3 puntos principales con subtítulos, llamado a la acción al final, despedida.',
+  },
+  email: {
+    label: 'Email profesional',
+    instructions: 'Genera un email profesional. Asunto claro y específico. Cuerpo conciso (máximo 200 palabras). Tono cordial pero directo. Estructura: saludo, contexto, mensaje principal, llamado a la acción, despedida.',
+  },
+  video: {
+    label: 'Guión de video corto',
+    instructions: 'Genera un guión para video corto (60-90 segundos, ~150-200 palabras). Estructura: hook (3 primeros segundos), desarrollo con 3 puntos, llamado a la acción final. Incluye indicaciones de [VISUAL] entre paréntesis.',
+  },
+  blog: {
+    label: 'Borrador de blog post',
+    instructions: 'Genera un borrador de blog post entre 600 y 900 palabras. Estructura: título atractivo, intro, 3-4 secciones con subtítulos H2, conclusión con call-to-action.',
+  },
+}
+
+async function generateContent({
+  apiKey, model, provider = 'openrouter',
+  templateType, topic, audience, tone, extraContext,
+}) {
+  validate(apiKey, model);
+
+  const template = CONTENT_TEMPLATES[templateType];
+  if (!template) {
+    const err = new Error('templateType inválido');
+    err.status = 400;
+    throw err;
+  }
+  if (!topic || topic.trim() === '') {
+    const err = new Error('topic es requerido');
+    err.status = 400;
+    throw err;
+  }
+
+  const prompt = `Genera contenido siguiendo estas especificaciones:
+
+FORMATO: ${template.label}
+INSTRUCCIONES: ${template.instructions}
+
+TEMA: ${topic}
+${audience ? `AUDIENCIA: ${audience}` : ''}
+${tone ? `TONO: ${tone}` : ''}
+${extraContext ? `\nCONTEXTO ADICIONAL: ${extraContext}` : ''}
+
+Genera el contenido directamente, sin preámbulos ni explicaciones. No uses markdown excepto cuando sea natural para el formato (ej. negritas en LinkedIn, headings en blog).`;
+
+  const reply = await callProvider({
+    provider,
+    apiKey: apiKey.trim(),
+    model: model.trim(),
+    messages: [
+      { role: 'system', content: 'Eres un copywriter experto. Generas contenido en español, atractivo y específico al formato solicitado. Nunca generas placeholders genéricos.' },
+      { role: 'user', content: prompt },
+    ],
+    jsonMode: false,
+  });
+
+  if (!reply) {
+    const err = new Error('Respuesta vacía del modelo');
+    err.status = 502;
+    throw err;
+  }
+
+  return { content: reply.trim(), template: template.label };
+}
+
+async function repurposeContent({
+  apiKey, model, provider = 'openrouter',
+  sourceContent, targetTemplateType,
+}) {
+  validate(apiKey, model);
+
+  const template = CONTENT_TEMPLATES[targetTemplateType];
+  if (!template) {
+    const err = new Error('targetTemplateType inválido');
+    err.status = 400;
+    throw err;
+  }
+
+  const prompt = `Adapta el siguiente contenido a otro formato.
+
+CONTENIDO ORIGINAL:
+${sourceContent}
+
+FORMATO DESTINO: ${template.label}
+INSTRUCCIONES: ${template.instructions}
+
+Mantén las ideas centrales pero adapta longitud, estructura y tono al nuevo formato. Genera el contenido directamente sin explicaciones.`;
+
+  const reply = await callProvider({
+    provider,
+    apiKey: apiKey.trim(),
+    model: model.trim(),
+    messages: [
+      { role: 'system', content: 'Eres un copywriter experto en adaptar contenido entre formatos. Respondes solo con el contenido adaptado, sin explicaciones.' },
+      { role: 'user', content: prompt },
+    ],
+    jsonMode: false,
+  });
+
+  if (!reply) {
+    const err = new Error('Respuesta vacía del modelo');
+    err.status = 502;
+    throw err;
+  }
+
+  return { content: reply.trim(), template: template.label };
+}
+
+async function getPlanSuggestions({
+  apiKey, model, provider = 'openrouter',
+  date, currentTasks = [], pendingTasks = [], tomorrowEvents = [], habits = [],
+}) {
+  validate(apiKey, model);
+
+  const taskList = currentTasks.length > 0
+    ? currentTasks.map((t) => `- ${t.activity}${t.startTime ? ` (${t.startTime})` : ' (sin hora)'}`).join('\n')
+    : '(sin tareas todavía)';
+
+  const pendingTaskList = pendingTasks.slice(0, 12)
+    .map((t) => `- ${t.title}${t.priority ? ` [${t.priority}]` : ''}`)
+    .join('\n') || '(sin tareas pendientes)';
+
+  const eventList = tomorrowEvents.length > 0
+    ? tomorrowEvents.map((e) => `- ${e.title}${e.startTime ? ` a las ${e.startTime}` : ''}`).join('\n')
+    : '(sin eventos)';
+
+  const habitList = habits.length > 0
+    ? habits.map((h) => `- ${h.name} (racha: ${h.streak || 0} días)`).join('\n')
+    : '(sin hábitos)';
+
+  const prompt = `Estoy planificando mañana (${date}).
+
+Tareas que ya agregué:
+${taskList}
+
+Tareas pendientes por hacer:
+${pendingTaskList}
+
+Eventos de mañana:
+${eventList}
+
+Hábitos que debo mantener:
+${habitList}
+
+Sugiere entre 3 y 6 tareas o actividades para completar mañana. Considera:
+- Las tareas más prioritarias
+- Espacios para eventos ya fijados
+- Descansos y hábitos diarios
+- No sobrecargar el día
+- Si ya hay tareas en el plan, sugiere solo lo que falta
+
+Puedes sugerir una hora OPCIONAL (mañana=08:00-12:00, tarde=13:00-17:00, noche=19:00-22:00) o sin hora si es flexible.
+
+Responde SOLO con este JSON (sin markdown, sin código):
+[{"activity":"descripción concreta","startTime":"HH:MM o null","reason":"por qué"}]`;
+
+  const raw = await callProvider({
+    provider,
+    apiKey: apiKey.trim(),
+    model: model.trim(),
+    messages: [
+      { role: 'system', content: 'Eres un coach de productividad experto. Responde siempre en español y solo con el JSON solicitado.' },
+      { role: 'user', content: prompt },
+    ],
+    jsonMode: true,
+  });
+
+  if (!raw) {
+    const err = new Error('Respuesta vacía del modelo');
+    err.status = 502;
+    throw err;
+  }
+
+  let suggestions;
+  try {
+    const match = raw.match(/\[[\s\S]*\]/);
+    suggestions = JSON.parse(match ? match[0] : raw);
+    if (!Array.isArray(suggestions)) throw new Error('Not an array');
+  } catch {
+    const err = new Error('El modelo no devolvió un formato válido');
+    err.status = 502;
+    throw err;
+  }
+
+  return { suggestions };
+}
+
+async function getWeeklyReview({
+  apiKey, model, provider = 'openrouter',
+  period, completedTasks = [], habitCount, habitLogsCompleted,
+  expectedHabitLogs, eventCount, maxStreak,
+}) {
+  validate(apiKey, model);
+
+  const habitRate = expectedHabitLogs > 0
+    ? Math.round((habitLogsCompleted / expectedHabitLogs) * 100)
+    : null;
+
+  const taskList = completedTasks.length > 0
+    ? completedTasks.map((t) => `- ${t.title}${t.priority ? ` [${t.priority}]` : ''}${t.category ? ` (${t.category})` : ''}`).join('\n')
+    : '(ninguna tarea completada)';
+
+  const prompt = `El usuario completó las siguientes tareas esta ${period}:
+${taskList}
+
+Estadísticas:
+- Tareas completadas: ${completedTasks.length}
+- Hábitos: ${habitCount} configurados, ${habitLogsCompleted} registros completados${habitRate !== null ? `, ${habitRate}% de cumplimiento` : ''}
+- Eventos asistidos: ${eventCount}
+- Racha activa máxima: ${maxStreak} días
+
+Genera un resumen motivacional y personal de los logros de esta ${period}.
+Habla en segunda persona ("lograste", "completaste").
+Sé genuinamente positivo pero sin exagerar. Reconoce el esfuerzo real.
+Menciona logros específicos de la lista de tareas si los hay.
+Si el cumplimiento de hábitos es alto (>70%), felicita por eso específicamente.
+Termina con una frase de aliento para el siguiente ${period === 'semana' ? 'período' : 'mes'}.
+Máximo 150 palabras. Sin listas, solo texto fluido en párrafos cortos.`;
+
+  const reply = await callProvider({
+    provider,
+    apiKey: apiKey.trim(),
+    model: model.trim(),
+    messages: [
+      { role: 'system', content: 'Eres un coach personal motivacional. Tus respuestas son cálidas, genuinas y específicas. Siempre en español.' },
+      { role: 'user', content: prompt },
+    ],
+    jsonMode: false,
+  });
+
+  if (!reply) {
+    const err = new Error('Respuesta vacía del modelo');
+    err.status = 502;
+    throw err;
+  }
+
+  return { review: reply.trim() };
+}
+
+module.exports = {
+  getSuggestions,
+  getChatReply,
+  listModels,
+  getWeeklyReview,
+  getPlanSuggestions,
+  generateContent,
+  repurposeContent,
+  CONTENT_TEMPLATES,
+};
