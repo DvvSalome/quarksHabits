@@ -2,8 +2,8 @@ const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
-async function getAllEvents(filters = {}) {
-  const where = {};
+async function getAllEvents(userId, filters = {}) {
+  const where = { userId };
 
   if (filters.from) {
     where.startTime = { ...(where.startTime || {}), gte: new Date(filters.from) };
@@ -21,11 +21,11 @@ async function getAllEvents(filters = {}) {
   });
 }
 
-async function getEventById(id) {
-  return prisma.event.findUnique({ where: { id } });
+async function getEventById(userId, id) {
+  return prisma.event.findFirst({ where: { id, userId } });
 }
 
-async function createEvent(data) {
+async function createEvent(userId, data) {
   const { title, description, startTime, endTime, allDay, color, taskId } = data;
 
   if (!title || title.trim() === '') {
@@ -63,6 +63,7 @@ async function createEvent(data) {
 
   return prisma.event.create({
     data: {
+      userId,
       title: title.trim(),
       description: description || null,
       startTime: start,
@@ -74,8 +75,8 @@ async function createEvent(data) {
   });
 }
 
-async function updateEvent(id, data) {
-  const existing = await prisma.event.findUnique({ where: { id } });
+async function updateEvent(userId, id, data) {
+  const existing = await prisma.event.findFirst({ where: { id, userId } });
   if (!existing) return null;
 
   const { title, description, startTime, endTime, allDay, color, taskId } = data;
@@ -127,13 +128,13 @@ async function updateEvent(id, data) {
     throw err;
   }
 
-  return prisma.event.update({ where: { id }, data: updateData });
+  return prisma.event.update({ where: { id: existing.id }, data: updateData });
 }
 
-async function deleteEvent(id) {
-  const existing = await prisma.event.findUnique({ where: { id } });
+async function deleteEvent(userId, id) {
+  const existing = await prisma.event.findFirst({ where: { id, userId } });
   if (!existing) return false;
-  await prisma.event.delete({ where: { id } });
+  await prisma.event.delete({ where: { id: existing.id } });
   return true;
 }
 

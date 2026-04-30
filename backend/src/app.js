@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const errorHandler = require('./middleware/errorHandler');
+const { requireAuth } = require('./middleware/auth');
 
 const tasksRouter = require('./routes/tasks');
 const habitsRouter = require('./routes/habits');
@@ -8,6 +9,8 @@ const eventsRouter = require('./routes/events');
 const routineRouter = require('./routes/routine');
 const aiRouter = require('./routes/ai');
 const contentRouter = require('./routes/content');
+const authRouter = require('./routes/auth');
+const reportsRouter = require('./routes/reports');
 
 const app = express();
 
@@ -28,12 +31,14 @@ app.get('/api/health', (req, res) => {
 });
 
 // Routes
-app.use('/api/tasks', tasksRouter);
-app.use('/api/habits', habitsRouter);
-app.use('/api/events', eventsRouter);
-app.use('/api/routine', routineRouter);
-app.use('/api/ai', aiRouter);
-app.use('/api/content', contentRouter);
+app.use('/api/auth', authRouter);
+app.use('/api/tasks', requireAuth, tasksRouter);
+app.use('/api/habits', requireAuth, habitsRouter);
+app.use('/api/events', requireAuth, eventsRouter);
+app.use('/api/routine', requireAuth, routineRouter);
+app.use('/api/ai', requireAuth, aiRouter);
+app.use('/api/content', requireAuth, contentRouter);
+app.use('/api/reports', requireAuth, reportsRouter);
 
 // 404 for unknown API routes
 app.use('/api/*', (req, res) => {

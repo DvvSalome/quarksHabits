@@ -10,7 +10,9 @@ import {
   TrendingUp,
   FileText,
   Zap,
+  LogOut,
 } from 'lucide-react'
+import { useAuth } from '../../contexts/AuthContext'
 
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Inicio' },
@@ -23,6 +25,9 @@ const navItems = [
 ]
 
 export default function Sidebar() {
+  const { user, logout } = useAuth()
+  const displayName = user?.user_metadata?.name || user?.email || 'Usuario'
+
   return (
     <aside
       className="w-56 min-h-screen flex flex-col sticky top-0 h-screen relative overflow-hidden"
@@ -162,6 +167,10 @@ export default function Sidebar() {
         className="relative px-3 py-3"
         style={{ borderTop: '1px solid rgba(139, 92, 246, 0.12)' }}
       >
+        <div className="px-3 pb-3">
+          <p className="text-xs text-slate-400 truncate">{displayName}</p>
+          <p className="text-[11px] text-slate-500 truncate">{user?.email || ''}</p>
+        </div>
         <NavLink to="/settings" className="block">
           {({ isActive }) => (
             <motion.div
@@ -189,6 +198,14 @@ export default function Sidebar() {
             </motion.div>
           )}
         </NavLink>
+        <button
+          type="button"
+          onClick={logout}
+          className="mt-2 w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-slate-200"
+        >
+          <LogOut className="w-4 h-4 flex-shrink-0 text-slate-500" />
+          <span>Cerrar sesion</span>
+        </button>
       </div>
     </aside>
   )

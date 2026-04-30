@@ -14,7 +14,7 @@ import { useHabits } from '../hooks/useHabits'
 import { useEvents } from '../hooks/useEvents'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
-import client from '../api/client'
+import { aiText } from '../lib/aiClient'
 
 function readAiConfig() {
   const provider = localStorage.getItem('ai_provider') || 'openrouter'
@@ -208,19 +208,22 @@ function AIReview({ tasks, habits, events, period, interval }) {
         return d && inInterval(d, interval)
       })
 
-      const res = await client.post('/ai/review', {
-        apiKey, model, provider,
-        period: period === 'week' ? 'semana' : 'mes',
-        completedTasks: completedTasks.map((t) => ({ title: t.title, priority: t.priority, category: t.category })),
-        habitCount: habits.length,
-        habitLogsCompleted: periodHabitLogs.length,
-        expectedHabitLogs: habits.filter((h) => h.frequency === 'daily').length * (period === 'week' ? 7 : 30),
-        eventCount: periodEvents.length,
-        maxStreak: Math.max(0, ...habits.map((h) => h.streak || 0)),
+      const reviewText = await aiText({
+        provider,
+        apiKey,
+        model,
+        systemPrompt: 'Eres coach de productividad. Responde en espanol de forma breve, accionable y motivante.',
+        userPrompt: `Periodo: ${period === 'week' ? 'semana' : 'mes'}.
+Tareas completadas: ${completedTasks.length}
+Habitos activos: ${habits.length}
+Check-ins habitos: ${periodHabitLogs.length}
+Eventos: ${periodEvents.length}
+Mejor racha: ${Math.max(0, ...habits.map((h) => h.streak || 0))}
+Dame resumen en 1 parrafo + 3 recomendaciones concretas.`,
       })
-      setReview(res.data.review)
+      setReview(reviewText)
     } catch (err) {
-      setError(err.response?.data?.error || err.message || 'Error desconocido')
+      setError(err.message || 'Error desconocido')
     } finally {
       setLoading(false)
     }

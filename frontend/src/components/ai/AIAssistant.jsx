@@ -17,8 +17,8 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import client from '../../api/client'
 import Button from '../ui/Button'
+import { aiChat, aiJson } from '../../lib/aiClient'
 
 function readAiConfig() {
   const provider = localStorage.getItem('ai_provider') || 'openrouter'
@@ -60,16 +60,19 @@ export default function AIAssistant({ isOpen, onClose, tasks, habits, events, ro
     setAnalyzeResult(null)
     try {
       const todayStr = format(today, 'yyyy-MM-dd')
-      const res = await client.post('/ai/suggest', {
+      const result = await aiJson({
+        provider,
         apiKey,
         model,
-        provider,
-        tasks: tasks.filter((t) => !t.completed),
-        habits,
-        events: events.filter((e) => e.startTime?.slice(0, 10) === todayStr),
-        date: todayStr,
+        systemPrompt:
+          'Devuelve SOLO JSON: {"motivationalMessage":"...","dailySuggestion":"...","priorityRecommendations":["..."],"timeBlocks":[{"time":"HH:MM","activity":"..."}]}',
+        userPrompt: `Fecha: ${todayStr}
+Tareas pendientes: ${JSON.stringify(tasks.filter((t) => !t.completed))}
+Habitos: ${JSON.stringify(habits)}
+Eventos hoy: ${JSON.stringify(events.filter((e) => e.startTime?.slice(0, 10) === todayStr))}
+`,
       })
-      setAnalyzeResult(res.data)
+      setAnalyzeResult(result)
     } catch (err) {
       setError('api_error')
       setErrorMsg(err.response?.data?.error || err.message || 'Unknown Protocol Error')
@@ -92,14 +95,19 @@ export default function AIAssistant({ isOpen, onClose, tasks, habits, events, ro
     setErrorMsg('')
 
     try {
-      const res = await client.post('/ai/chat', {
+      const reply = await aiChat({
+        provider,
         apiKey,
         model,
-        provider,
+        systemPrompt: `Eres asistente personal productivo. Contexto: ${JSON.stringify({
+          tasks,
+          habits,
+          events,
+          routine,
+        })}`,
         messages: nextMessages,
-        context: { tasks, habits, events, routine },
       })
-      setChatMessages((prev) => [...prev, { role: 'assistant', content: res.data.reply }])
+      setChatMessages((prev) => [...prev, { role: 'assistant', content: reply }])
     } catch (err) {
       setError('api_error')
       setErrorMsg(err.response?.data?.error || err.message || 'Unknown Protocol Error')

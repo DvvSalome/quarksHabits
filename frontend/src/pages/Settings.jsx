@@ -1,8 +1,27 @@
 import { Bell, Globe, Moon, User } from 'lucide-react'
 import AISettings from '../components/ai/AISettings'
 import Card from '../components/ui/Card'
+import { useTasks } from '../hooks/useTasks'
+import { useHabits } from '../hooks/useHabits'
+import { useEvents } from '../hooks/useEvents'
 
 export default function Settings() {
+  const tasks = useTasks()
+  const habits = useHabits()
+  const events = useEvents()
+
+  const downloadWeeklyReport = async () => {
+    const now = new Date()
+    const content = `<!doctype html><html><head><meta charset="utf-8"/><title>Reporte semanal</title></head><body><h1>Reporte semanal</h1><p>Generado: ${now.toISOString()}</p><ul><li>Tareas: ${tasks.data.length}</li><li>Habitos: ${habits.data.length}</li><li>Eventos: ${events.data.length}</li></ul></body></html>`
+    const blob = new Blob([content], { type: 'text/html' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `reporte-semanal-${new Date().toISOString().slice(0, 10)}.html`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
@@ -78,6 +97,26 @@ export default function Settings() {
               </div>
               <span className="text-xs text-gray-300 italic">Próximamente</span>
             </div>
+          </div>
+        </Card>
+      </section>
+      <section>
+        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">
+          Reportes
+        </h2>
+        <Card>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-900">Reporte semanal en HTML</p>
+              <p className="text-xs text-gray-400">Descarga tus avances de la semana actual.</p>
+            </div>
+            <button
+              type="button"
+              onClick={downloadWeeklyReport}
+              className="px-3 py-2 rounded-lg bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700"
+            >
+              Descargar
+            </button>
           </div>
         </Card>
       </section>

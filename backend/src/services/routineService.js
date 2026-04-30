@@ -13,8 +13,8 @@ function validateTimeFormat(str) {
   return /^\d{2}:\d{2}$/.test(str);
 }
 
-async function getAllRoutineBlocks(filters = {}) {
-  const where = {};
+async function getAllRoutineBlocks(userId, filters = {}) {
+  const where = { userId };
 
   if (filters.planDate) {
     // Daily plan mode: return blocks for a specific date
@@ -31,11 +31,11 @@ async function getAllRoutineBlocks(filters = {}) {
   });
 }
 
-async function getRoutineBlockById(id) {
-  return prisma.routineBlock.findUnique({ where: { id } });
+async function getRoutineBlockById(userId, id) {
+  return prisma.routineBlock.findFirst({ where: { id, userId } });
 }
 
-async function createRoutineBlock(data) {
+async function createRoutineBlock(userId, data) {
   const { startTime, activity, planDate, title, timeSlot, recurring, dayOfWeek, order } = data;
 
   if (!activity || activity.trim() === '') {
@@ -64,6 +64,7 @@ async function createRoutineBlock(data) {
 
   return prisma.routineBlock.create({
     data: {
+      userId,
       title: resolvedTitle,
       timeSlot: resolvedTimeSlot,
       startTime: startTime || null,
@@ -77,8 +78,8 @@ async function createRoutineBlock(data) {
   });
 }
 
-async function updateRoutineBlock(id, data) {
-  const existing = await prisma.routineBlock.findUnique({ where: { id } });
+async function updateRoutineBlock(userId, id, data) {
+  const existing = await prisma.routineBlock.findFirst({ where: { id, userId } });
   if (!existing) return null;
 
   const { title, timeSlot, startTime, activity, recurring, dayOfWeek, order, planDate, completed } = data;
@@ -122,13 +123,13 @@ async function updateRoutineBlock(id, data) {
     updateData.completedAt = completed ? new Date() : null;
   }
 
-  return prisma.routineBlock.update({ where: { id }, data: updateData });
+  return prisma.routineBlock.update({ where: { id: existing.id }, data: updateData });
 }
 
-async function deleteRoutineBlock(id) {
-  const existing = await prisma.routineBlock.findUnique({ where: { id } });
+async function deleteRoutineBlock(userId, id) {
+  const existing = await prisma.routineBlock.findFirst({ where: { id, userId } });
   if (!existing) return false;
-  await prisma.routineBlock.delete({ where: { id } });
+  await prisma.routineBlock.delete({ where: { id: existing.id } });
   return true;
 }
 

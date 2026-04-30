@@ -7,7 +7,7 @@ const router = Router();
 // GET /api/content
 router.get('/', async (req, res, next) => {
   try {
-    const contents = await contentService.getAllContents();
+    const contents = await contentService.getAllContents(req.user.id);
     res.json(contents);
   } catch (err) { next(err); }
 });
@@ -46,7 +46,7 @@ router.post('/repurpose', async (req, res, next) => {
 // POST /api/content — save generated content
 router.post('/', async (req, res, next) => {
   try {
-    const content = await contentService.createContent(req.body);
+    const content = await contentService.createContent(req.user.id, req.body);
     res.status(201).json(content);
   } catch (err) { next(err); }
 });
@@ -54,7 +54,7 @@ router.post('/', async (req, res, next) => {
 // PUT /api/content/:id
 router.put('/:id', async (req, res, next) => {
   try {
-    const content = await contentService.updateContent(req.params.id, req.body);
+    const content = await contentService.updateContent(req.user.id, req.params.id, req.body);
     if (!content) return res.status(404).json({ error: 'Not found', status: 404 });
     res.json(content);
   } catch (err) { next(err); }
@@ -63,7 +63,7 @@ router.put('/:id', async (req, res, next) => {
 // DELETE /api/content/:id
 router.delete('/:id', async (req, res, next) => {
   try {
-    const deleted = await contentService.deleteContent(req.params.id);
+    const deleted = await contentService.deleteContent(req.user.id, req.params.id);
     if (!deleted) return res.status(404).json({ error: 'Not found', status: 404 });
     res.json({ message: 'Deleted' });
   } catch (err) { next(err); }

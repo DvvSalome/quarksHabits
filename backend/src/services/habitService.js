@@ -52,8 +52,9 @@ function prevDay(dateStr) {
   return toDateString(d);
 }
 
-async function getAllHabits() {
+async function getAllHabits(userId) {
   const habits = await prisma.habit.findMany({
+    where: { userId },
     include: { logs: true },
     orderBy: { createdAt: 'asc' },
   });
@@ -64,16 +65,16 @@ async function getAllHabits() {
   }));
 }
 
-async function getHabitById(id) {
-  const habit = await prisma.habit.findUnique({
-    where: { id },
+async function getHabitById(userId, id) {
+  const habit = await prisma.habit.findFirst({
+    where: { id, userId },
     include: { logs: true },
   });
   if (!habit) return null;
   return { ...habit, streak: computeStreak(habit.logs) };
 }
 
-async function createHabit(data) {
+async function createHabit(userId, data) {
   const { name, frequency, color, icon } = data;
 
   if (!name || name.trim() === '') {
@@ -91,6 +92,7 @@ async function createHabit(data) {
 
   const habit = await prisma.habit.create({
     data: {
+      userId,
       name: name.trim(),
       frequency: frequency || 'daily',
       color: color || '#6366f1',
@@ -102,8 +104,8 @@ async function createHabit(data) {
   return { ...habit, streak: 0 };
 }
 
-async function updateHabit(id, data) {
-  const existing = await prisma.habit.findUnique({ where: { id } });
+async function updateHabit(userId, id, data) {
+  const existing = await prisma.habit.findFirst({ where: { id, userId } });
   if (!existing) return null;
 
   const { name, frequency, color, icon } = data;
@@ -128,7 +130,7 @@ async function updateHabit(id, data) {
   if (icon !== undefined) updateData.icon = icon;
 
   const habit = await prisma.habit.update({
-    where: { id },
+    where: { id: existing.id },
     data: updateData,
     include: { logs: true },
   });
@@ -136,14 +138,14 @@ async function updateHabit(id, data) {
   return { ...habit, streak: computeStreak(habit.logs) };
 }
 
-async function deleteHabit(id) {
-  const existing = await prisma.habit.findUnique({ where: { id } });
+async function deleteHabit(userId, id) {
+  const existing = await prisma.habit.findFirst({ where: { id, userId } });
   if (!existing) return false;
-  await prisma.habit.delete({ where: { id } });
+  await prisma.habit.delete({ where: { id: existing.id } });
   return true;
 }
 
-async function logHabit(habitId, date, completed) {
+async function logHabit(userId, habitId, date, completed) {
   if (!date) {
     const err = new Error('date is required (YYYY-MM-DD)');
     err.status = 400;
@@ -157,7 +159,7 @@ async function logHabit(habitId, date, completed) {
     throw err;
   }
 
-  const habit = await prisma.habit.findUnique({ where: { id: habitId } });
+  const habit = await prisma.habit.findFirst({ where: { id: habitId, userId } });
   if (!habit) return null;
 
   const log = await prisma.habitLog.upsert({
@@ -171,14 +173,14 @@ async function logHabit(habitId, date, completed) {
   const streak = computeStreak(allLogs);
 
   // Update habit streak field for convenience
-  await prisma.habit.update({ where: { id: habitId }, data: { streak } });
+  await prisma.habit.update({ where: { id: habit.id }, data: { streak } });
 
   return { log, streak };
 }
 
-async function getHabitStats(id) {
-  const habit = await prisma.habit.findUnique({
-    where: { id },
+async function getHabitStats(userId, id) {
+  const habit = await prisma.habit.findFirst({
+    where: { id, userId },
     include: { logs: true },
   });
   if (!habit) return null;

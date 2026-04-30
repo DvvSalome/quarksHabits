@@ -6,7 +6,7 @@ const router = Router();
 // GET /api/events
 router.get('/', async (req, res, next) => {
   try {
-    const events = await eventService.getAllEvents(req.query);
+    const events = await eventService.getAllEvents(req.user.id, req.query);
     res.json(events);
   } catch (err) {
     next(err);
@@ -16,7 +16,7 @@ router.get('/', async (req, res, next) => {
 // GET /api/events/:id
 router.get('/:id', async (req, res, next) => {
   try {
-    const event = await eventService.getEventById(req.params.id);
+    const event = await eventService.getEventById(req.user.id, req.params.id);
     if (!event) return res.status(404).json({ error: 'Event not found', status: 404 });
     res.json(event);
   } catch (err) {
@@ -27,7 +27,7 @@ router.get('/:id', async (req, res, next) => {
 // POST /api/events
 router.post('/', async (req, res, next) => {
   try {
-    const event = await eventService.createEvent(req.body);
+    const event = await eventService.createEvent(req.user.id, req.body);
     res.status(201).json(event);
   } catch (err) {
     next(err);
@@ -37,7 +37,7 @@ router.post('/', async (req, res, next) => {
 // PUT /api/events/:id
 router.put('/:id', async (req, res, next) => {
   try {
-    const event = await eventService.updateEvent(req.params.id, req.body);
+    const event = await eventService.updateEvent(req.user.id, req.params.id, req.body);
     if (!event) return res.status(404).json({ error: 'Event not found', status: 404 });
     res.json(event);
   } catch (err) {
@@ -48,7 +48,7 @@ router.put('/:id', async (req, res, next) => {
 // DELETE /api/events/:id
 router.delete('/:id', async (req, res, next) => {
   try {
-    const deleted = await eventService.deleteEvent(req.params.id);
+    const deleted = await eventService.deleteEvent(req.user.id, req.params.id);
     if (!deleted) return res.status(404).json({ error: 'Event not found', status: 404 });
     res.json({ message: 'Event deleted successfully' });
   } catch (err) {

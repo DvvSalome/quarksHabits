@@ -13,8 +13,8 @@ import { useHabits } from '../hooks/useHabits'
 import { useEvents } from '../hooks/useEvents'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
-import client from '../api/client'
 import toast from 'react-hot-toast'
+import { aiJson } from '../lib/aiClient'
 
 function readAiConfig() {
   const provider = localStorage.getItem('ai_provider') || 'openrouter'
@@ -378,18 +378,23 @@ export default function Routine({ onStartPomodoro }) {
     setAiError('')
     setSuggestions([])
     try {
-      const res = await client.post('/ai/plan', {
-        apiKey, model, provider,
-        date: currentLabel,
-        currentTasks: routine.data.map((t) => ({ activity: t.activity, startTime: t.startTime })),
-        pendingTasks: pendingTasks.map((t) => ({ title: t.title, priority: t.priority })),
-        tomorrowEvents: contextEvents,
-        habits: habitsHook.data.map((h) => ({ name: h.name, streak: h.streak })),
+      const json = await aiJson({
+        provider,
+        apiKey,
+        model,
+        systemPrompt: 'Devuelve SOLO JSON valido con formato: {"suggestions":[{"activity":"...","startTime":"HH:MM","reason":"..."}]}',
+        userPrompt: `Fecha: ${currentLabel}
+Bloques actuales: ${JSON.stringify(routine.data.map((t) => ({ activity: t.activity, startTime: t.startTime })))}
+Tareas pendientes: ${JSON.stringify(pendingTasks.map((t) => ({ title: t.title, priority: t.priority })))}
+Eventos: ${JSON.stringify(contextEvents)}
+Habitos: ${JSON.stringify(habitsHook.data.map((h) => ({ name: h.name, streak: h.streak })))}
+Propone maximo 5 bloques utiles.`,
       })
-      setSuggestions(res.data.suggestions || [])
-      if (!res.data.suggestions?.length) toast.success('¡El plan ya está completo!')
+      const next = Array.isArray(json?.suggestions) ? json.suggestions : []
+      setSuggestions(next)
+      if (!next.length) toast.success('¡El plan ya está completo!')
     } catch (err) {
-      setAiError(err.response?.data?.error || err.message || 'Error desconocido')
+      setAiError(err.message || 'Error desconocido')
     } finally {
       setAiLoading(false)
     }

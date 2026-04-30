@@ -4,7 +4,7 @@ import Button from '../ui/Button'
 import Input from '../ui/Input'
 import Card from '../ui/Card'
 import toast from 'react-hot-toast'
-import client from '../../api/client'
+import { fetchModels } from '../../lib/aiClient'
 
 const PROVIDERS = {
   openrouter: {
@@ -104,11 +104,11 @@ export default function AISettings() {
     }
     setLoadingModels(true)
     try {
-      const res = await client.post('/ai/models', { apiKey: key.trim(), provider })
-      setAvailableModels((prev) => ({ ...prev, [provider]: res.data.models }))
-      toast.success(`${res.data.models.length} modelos disponibles`)
+      const models = await fetchModels({ apiKey: key.trim(), provider })
+      setAvailableModels((prev) => ({ ...prev, [provider]: models }))
+      toast.success(`${models.length} modelos disponibles`)
     } catch {
-      // Error already shown by axios interceptor
+      toast.error('No se pudieron cargar modelos')
     } finally {
       setLoadingModels(false)
     }

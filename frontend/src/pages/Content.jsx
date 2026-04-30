@@ -7,9 +7,12 @@ import {
 } from 'lucide-react'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
-import client from '../api/client'
 import toast from 'react-hot-toast'
 import { motion } from 'framer-motion'
+import { supabase } from '../lib/supabase'
+import { CONTENT_TEMPLATES } from '../lib/contentTemplates'
+import { aiText } from '../lib/aiClient'
+import { useAuth } from '../contexts/AuthContext'
 
 const TEMPLATE_ICONS = {
   twitter: Twitter,
@@ -68,6 +71,7 @@ function ContentItem({ item, onSelect, onDelete, onToggleStar, selected }) {
 }
 
 export default function Content() {
+  const { user } = useAuth()
   const [templates, setTemplates] = useState([])
   const [history, setHistory] = useState([])
   const [selected, setSelected] = useState(null)
@@ -95,16 +99,17 @@ export default function Content() {
   }, [])
 
   const loadTemplates = async () => {
-    try {
-      const res = await client.get('/content/templates')
-      setTemplates(res.data.templates || [])
-    } catch {}
+    setTemplates(CONTENT_TEMPLATES)
   }
 
   const loadHistory = async () => {
     try {
-      const res = await client.get('/content')
-      setHistory(res.data || [])
+      const { data, error: queryError } = await supabase
+        .from('Content')
+        .select('*')
+        .order('createdAt', { ascending: false })
+      if (queryError) throw queryError
+      setHistory(data || [])
     } catch {}
   }
 
@@ -123,26 +128,33 @@ export default function Content() {
     setError('')
     setGeneratedContent('')
     try {
-      const res = await client.post('/content/generate', {
-        apiKey, model, provider,
-        templateType, topic: topic.trim(),
-        audience: audience.trim() || null,
-        tone: tone.trim() || null,
+      const content = await aiText({
+        provider,
+        apiKey,
+        model,
+        systemPrompt: 'Eres un redactor experto. Devuelve solo el contenido final, sin explicaciones extra.',
+        userPrompt: `Genera contenido en formato "${templateType}" sobre: "${topic.trim()}". Audiencia: "${audience.trim() || 'general'}". Tono: "${tone.trim() || 'neutral'}".`,
       })
-      setGeneratedContent(res.data.content)
+      setGeneratedContent(content)
 
       // Save to history automatically
-      const saved = await client.post('/content', {
+      const { data: saved, error: saveError } = await supabase
+        .from('Content')
+        .insert({
+          userId: user.id,
         templateType,
         topic: topic.trim(),
         audience: audience.trim() || null,
         tone: tone.trim() || null,
-        body: res.data.content,
-      })
-      setHistory((prev) => [saved.data, ...prev])
-      setSelected(saved.data)
+          body: content,
+        })
+        .select()
+        .single()
+      if (saveError) throw saveError
+      setHistory((prev) => [saved, ...prev])
+      setSelected(saved)
     } catch (err) {
-      setError(err.response?.data?.error || err.message || 'Unknown Error')
+      setError(err.message || 'Unknown Error')
     } finally {
       setGenerating(false)
     }
@@ -160,7 +172,8 @@ export default function Content() {
 
   const handleDelete = async (id) => {
     try {
-      await client.delete(`/content/${id}`)
+      const { error: deleteError } = await supabase.from('Content').delete().eq('id', id)
+      if (deleteError) throw deleteError
       setHistory((prev) => prev.filter((c) => c.id !== id))
       if (selected?.id === id) {
         setSelected(null)
@@ -174,9 +187,15 @@ export default function Content() {
 
   const handleToggleStar = async (item) => {
     try {
-      const res = await client.put(`/content/${item.id}`, { starred: !item.starred })
+      const { data: updated, error: updateError } = await supabase
+        .from('Content')
+        .update({ starred: !item.starred })
+        .eq('id', item.id)
+        .select()
+        .single()
+      if (updateError) throw updateError
       setHistory((prev) =>
-        prev.map((c) => (c.id === item.id ? res.data : c))
+        prev.map((c) => (c.id === item.id ? updated : c))
           .sort((a, b) => {
             if (a.starred !== b.starred) return b.starred - a.starred
             return new Date(b.createdAt) - new Date(a.createdAt)
@@ -199,8 +218,14 @@ export default function Content() {
   const handleSaveEdit = async () => {
     if (!selected) return
     try {
-      const res = await client.put(`/content/${selected.id}`, { body: generatedContent })
-      setHistory((prev) => prev.map((c) => (c.id === selected.id ? res.data : c)))
+      const { data: updated, error: updateError } = await supabase
+        .from('Content')
+        .update({ body: generatedContent })
+        .eq('id', selected.id)
+        .select()
+        .single()
+      if (updateError) throw updateError
+      setHistory((prev) => prev.map((c) => (c.id === selected.id ? updated : c)))
       toast.success('Modifications committed')
     } catch {
       toast.error('Commit failed')
@@ -216,25 +241,33 @@ export default function Content() {
     }
     setRepurposing(true)
     try {
-      const res = await client.post('/content/repurpose', {
-        apiKey, model, provider,
-        sourceContent: generatedContent,
-        targetTemplateType: repurposeTarget,
+      const content = await aiText({
+        provider,
+        apiKey,
+        model,
+        systemPrompt: 'Transforma contenido entre formatos. Devuelve solo contenido final.',
+        userPrompt: `Transforma este contenido al formato "${repurposeTarget}":\n\n${generatedContent}`,
       })
-      setGeneratedContent(res.data.content)
+      setGeneratedContent(content)
       setTemplateType(repurposeTarget)
 
-      const saved = await client.post('/content', {
+      const { data: saved, error: saveError } = await supabase
+        .from('Content')
+        .insert({
+          userId: user.id,
         templateType: repurposeTarget,
         topic: selected?.topic || topic || 'Repurposed',
-        body: res.data.content,
-      })
-      setHistory((prev) => [saved.data, ...prev])
-      setSelected(saved.data)
+          body: content,
+        })
+        .select()
+        .single()
+      if (saveError) throw saveError
+      setHistory((prev) => [saved, ...prev])
+      setSelected(saved)
       setRepurposeOpen(false)
       toast.success('Content repurposed successfully')
     } catch (err) {
-      setError(err.response?.data?.error || err.message)
+      setError(err.message)
     } finally {
       setRepurposing(false)
     }

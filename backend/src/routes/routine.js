@@ -6,7 +6,7 @@ const router = Router();
 // GET /api/routine
 router.get('/', async (req, res, next) => {
   try {
-    const blocks = await routineService.getAllRoutineBlocks(req.query);
+    const blocks = await routineService.getAllRoutineBlocks(req.user.id, req.query);
     res.json(blocks);
   } catch (err) {
     next(err);
@@ -16,7 +16,7 @@ router.get('/', async (req, res, next) => {
 // GET /api/routine/:id
 router.get('/:id', async (req, res, next) => {
   try {
-    const block = await routineService.getRoutineBlockById(req.params.id);
+    const block = await routineService.getRoutineBlockById(req.user.id, req.params.id);
     if (!block) return res.status(404).json({ error: 'Routine block not found', status: 404 });
     res.json(block);
   } catch (err) {
@@ -27,7 +27,7 @@ router.get('/:id', async (req, res, next) => {
 // POST /api/routine
 router.post('/', async (req, res, next) => {
   try {
-    const block = await routineService.createRoutineBlock(req.body);
+    const block = await routineService.createRoutineBlock(req.user.id, req.body);
     res.status(201).json(block);
   } catch (err) {
     next(err);
@@ -37,7 +37,7 @@ router.post('/', async (req, res, next) => {
 // PUT /api/routine/:id
 router.put('/:id', async (req, res, next) => {
   try {
-    const block = await routineService.updateRoutineBlock(req.params.id, req.body);
+    const block = await routineService.updateRoutineBlock(req.user.id, req.params.id, req.body);
     if (!block) return res.status(404).json({ error: 'Routine block not found', status: 404 });
     res.json(block);
   } catch (err) {
@@ -48,7 +48,7 @@ router.put('/:id', async (req, res, next) => {
 // DELETE /api/routine/:id
 router.delete('/:id', async (req, res, next) => {
   try {
-    const deleted = await routineService.deleteRoutineBlock(req.params.id);
+    const deleted = await routineService.deleteRoutineBlock(req.user.id, req.params.id);
     if (!deleted) return res.status(404).json({ error: 'Routine block not found', status: 404 });
     res.json({ message: 'Routine block deleted successfully' });
   } catch (err) {

@@ -2,8 +2,8 @@ const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
-async function getAllTasks(filters = {}) {
-  const where = {};
+async function getAllTasks(userId, filters = {}) {
+  const where = { userId };
 
   if (filters.completed !== undefined) {
     where.completed = filters.completed === 'true' || filters.completed === true;
@@ -23,13 +23,13 @@ async function getAllTasks(filters = {}) {
   return tasks.map(parseTask);
 }
 
-async function getTaskById(id) {
-  const task = await prisma.task.findUnique({ where: { id } });
+async function getTaskById(userId, id) {
+  const task = await prisma.task.findFirst({ where: { id, userId } });
   if (!task) return null;
   return parseTask(task);
 }
 
-async function createTask(data) {
+async function createTask(userId, data) {
   const { title, description, priority, category, tags, dueDate } = data;
 
   if (!title || title.trim() === '') {
@@ -47,6 +47,7 @@ async function createTask(data) {
 
   const task = await prisma.task.create({
     data: {
+      userId,
       title: title.trim(),
       description: description || null,
       priority: priority || 'medium',
@@ -59,8 +60,8 @@ async function createTask(data) {
   return parseTask(task);
 }
 
-async function updateTask(id, data) {
-  const existing = await prisma.task.findUnique({ where: { id } });
+async function updateTask(userId, id, data) {
+  const existing = await prisma.task.findFirst({ where: { id, userId } });
   if (!existing) return null;
 
   const { title, description, completed, priority, category, tags, dueDate } = data;
@@ -91,26 +92,26 @@ async function updateTask(id, data) {
     updateData.dueDate = dueDate ? new Date(dueDate) : null;
   }
 
-  const task = await prisma.task.update({ where: { id }, data: updateData });
+  const task = await prisma.task.update({ where: { id: existing.id }, data: updateData });
   return parseTask(task);
 }
 
-async function completeTask(id) {
-  const existing = await prisma.task.findUnique({ where: { id } });
+async function completeTask(userId, id) {
+  const existing = await prisma.task.findFirst({ where: { id, userId } });
   if (!existing) return null;
 
   const task = await prisma.task.update({
-    where: { id },
+    where: { id: existing.id },
     data: { completed: !existing.completed },
   });
   return parseTask(task);
 }
 
-async function deleteTask(id) {
-  const existing = await prisma.task.findUnique({ where: { id } });
+async function deleteTask(userId, id) {
+  const existing = await prisma.task.findFirst({ where: { id, userId } });
   if (!existing) return false;
 
-  await prisma.task.delete({ where: { id } });
+  await prisma.task.delete({ where: { id: existing.id } });
   return true;
 }
 
