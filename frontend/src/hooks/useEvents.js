@@ -34,7 +34,7 @@ export function useEvents() {
   }, [fetchEvents])
 
   const create = useCallback(async (eventData) => {
-    const payload = { ...eventData, userId: user.id }
+    const payload = { id: crypto.randomUUID(), ...eventData, userId: user.id }
     const { data: created, error: createError } = await supabase
       .from('Event')
       .insert(payload)

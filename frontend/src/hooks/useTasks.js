@@ -34,7 +34,7 @@ export function useTasks() {
   }, [fetchTasks])
 
   const create = useCallback(async (taskData) => {
-    const payload = { ...taskData, userId: user.id }
+    const payload = { id: crypto.randomUUID(), ...taskData, userId: user.id }
     const { data: created, error: createError } = await supabase
       .from('Task')
       .insert(payload)

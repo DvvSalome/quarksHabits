@@ -10,11 +10,21 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     let mounted = true
+    const ensureUserProfile = async (sessionUser) => {
+      if (!sessionUser?.id) return
+      await supabase.from('User').upsert({
+        id: sessionUser.id,
+        email: sessionUser.email || '',
+        name: sessionUser.user_metadata?.name || sessionUser.email?.split('@')[0] || 'Usuario',
+        passwordHash: 'supabase-auth',
+      })
+    }
 
     const bootstrapSession = async () => {
       const {
         data: { session },
       } = await supabase.auth.getSession()
+      if (session?.user) await ensureUserProfile(session.user)
 
       if (!mounted) return
       setToken(session?.access_token || '')
@@ -27,6 +37,7 @@ export function AuthProvider({ children }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) ensureUserProfile(session.user)
       setToken(session?.access_token || '')
       setUser(session?.user || null)
       setLoading(false)

@@ -33,7 +33,14 @@ export function useRoutine({ planDate } = {}) {
   }, [fetchRoutine])
 
   const create = useCallback(async (blockData) => {
-    const payload = planDate ? { ...blockData, planDate, userId: user.id } : { ...blockData, userId: user.id }
+    const payload = {
+      id: crypto.randomUUID(),
+      title: blockData.activity || 'Bloque',
+      timeSlot: blockData.startTime || 'unscheduled',
+      ...blockData,
+      userId: user.id,
+      ...(planDate ? { planDate } : {}),
+    }
     const { data: created, error: createError } = await supabase
       .from('RoutineBlock')
       .insert(payload)

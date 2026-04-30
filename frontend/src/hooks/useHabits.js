@@ -52,7 +52,7 @@ export function useHabits() {
   }, [fetchHabits])
 
   const create = useCallback(async (habitData) => {
-    const payload = { ...habitData, userId: user.id }
+    const payload = { id: crypto.randomUUID(), ...habitData, userId: user.id }
     const { data: created, error: createError } = await supabase
       .from('Habit')
       .insert(payload)
@@ -84,7 +84,7 @@ export function useHabits() {
 
   const checkIn = useCallback(async (id, date) => {
     const { error: upsertError } = await supabase.from('HabitLog').upsert(
-      { habitId: id, date, completed: true },
+      { id: `${id}:${date}`, habitId: id, date, completed: true },
       { onConflict: 'habitId,date' }
     )
     if (upsertError) throw upsertError

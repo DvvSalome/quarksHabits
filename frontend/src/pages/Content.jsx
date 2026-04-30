@@ -141,6 +141,7 @@ export default function Content() {
       const { data: saved, error: saveError } = await supabase
         .from('Content')
         .insert({
+          id: crypto.randomUUID(),
           userId: user.id,
         templateType,
         topic: topic.trim(),
@@ -254,6 +255,7 @@ export default function Content() {
       const { data: saved, error: saveError } = await supabase
         .from('Content')
         .insert({
+          id: crypto.randomUUID(),
           userId: user.id,
         templateType: repurposeTarget,
         topic: selected?.topic || topic || 'Repurposed',
