@@ -15,7 +15,7 @@ import BootSequence from './components/ui/BootSequence'
 import Login from './pages/Login'
 
 export default function App() {
-  const { isAuthenticated, loading } = useAuth()
+  const { isAuthenticated, loading, user } = useAuth()
   const [booting, setBooting] = useState(() => {
     // Check if we've already booted this session to avoid annoyance
     return !sessionStorage.getItem('jarvis_booted')
@@ -25,6 +25,8 @@ export default function App() {
     sessionStorage.setItem('jarvis_booted', 'true')
     setBooting(false)
   }
+
+  const displayName = user?.user_metadata?.name || user?.email?.split('@')[0] || 'Usuario'
 
   if (loading) return null
 
@@ -39,7 +41,7 @@ export default function App() {
   return (
     <>
       <AnimatePresence>
-        {booting && <BootSequence key="boot" onComplete={handleBootComplete} />}
+        {booting && <BootSequence key="boot" onComplete={handleBootComplete} userName={displayName} />}
       </AnimatePresence>
 
       {!booting && (

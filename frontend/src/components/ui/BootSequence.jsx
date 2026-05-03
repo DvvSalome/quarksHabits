@@ -9,7 +9,7 @@ const PHRASES = [
   'Empieza. El resto llegará solo.',
 ]
 
-export default function BootSequence({ onComplete }) {
+export default function BootSequence({ onComplete, userName = 'Usuario' }) {
   const [phase, setPhase] = useState(0)
   const phrase = useMemo(
     () => PHRASES[Math.floor(Math.random() * PHRASES.length)],
@@ -165,7 +165,7 @@ export default function BootSequence({ onComplete }) {
                   backgroundClip: 'text',
                 }}
               >
-                Salomé ✨
+                {userName} ✨
               </motion.h2>
 
               <motion.p
