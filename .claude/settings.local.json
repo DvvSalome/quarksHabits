@@ -10,7 +10,11 @@
       "Bash(npx prisma *)",
       "Bash(curl -X POST http://localhost:3001/api/routine -H 'Content-Type: application/json' -d '{ *)",
       "Bash(curl *)",
-      "Bash(node *)"
+      "Bash(node *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(gh auth *)"
     ]
   }
 }
