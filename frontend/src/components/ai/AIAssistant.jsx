@@ -240,7 +240,7 @@ Eventos hoy: ${JSON.stringify(events.filter((e) => e.startTime?.slice(0, 10) ===
                             onClick={() => setChatInput(s)}
                             className="bg-slate-900/50 border border-cyan-900/50 p-3 rounded-lg text-cyan-400 hover:bg-cyan-900/30 hover:border-cyan-500/50 hover:glow-text transition-all font-mono text-left"
                           >
-                            > {s}
+                            &gt; {s}
                           </button>
                         ))}
                       </div>
