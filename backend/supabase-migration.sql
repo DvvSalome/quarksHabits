@@ -42,8 +42,12 @@ create table if not exists public."HabitLog" (
   "habitId" text not null references public."Habit"(id) on delete cascade,
   date text not null,
   completed boolean not null default false,
+  comment text,
   unique("habitId", date)
 );
+
+alter table public."HabitLog"
+  add column if not exists comment text;
 
 create table if not exists public."Event" (
   id text primary key,

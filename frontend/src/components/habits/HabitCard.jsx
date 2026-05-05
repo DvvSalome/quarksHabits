@@ -1,6 +1,7 @@
+import { useMemo, useState } from 'react'
 import { format, subDays } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Flame, Pencil, Trash2 } from 'lucide-react'
+import { Flame, MessageSquare, Pencil, Trash2 } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 function isCheckedOn(habit, date) {
@@ -14,6 +15,12 @@ export default function HabitCard({ habit, onCheckIn, onEdit, onDelete, compact 
   const todayStr = format(today, 'yyyy-MM-dd')
   const last7 = Array.from({ length: 7 }, (_, i) => subDays(today, 6 - i))
   const isCheckedToday = isCheckedOn(habit, today)
+  const todayLog = useMemo(
+    () => (habit.logs || []).find((l) => l.date === todayStr),
+    [habit.logs, todayStr]
+  )
+  const [comment, setComment] = useState(todayLog?.comment || '')
+  const [showComment, setShowComment] = useState(Boolean(todayLog?.comment))
 
   const color = habit.color && habit.color.startsWith('#') ? habit.color : '#7c3aed'
   const freqLabel = habit.frequency === 'daily' || habit.frequency === 'diaria' ? 'Diaria' : 'Semanal'
@@ -93,9 +100,39 @@ export default function HabitCard({ habit, onCheckIn, onEdit, onDelete, compact 
       )}
 
       {/* Check-in button */}
+      {showComment && !isCheckedToday && (
+        <div className="mb-2">
+          <textarea
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            placeholder="Comentario del día (opcional)"
+            rows={2}
+            className="w-full resize-none rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-xs text-stone-700 placeholder:text-stone-400 outline-none transition focus:border-violet-300 focus:bg-white"
+          />
+        </div>
+      )}
+
+      {isCheckedToday && todayLog?.comment && (
+        <div className="mb-2 rounded-xl border border-violet-100 bg-violet-50 px-3 py-2 text-xs text-violet-700 flex gap-2">
+          <MessageSquare className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+          <span>{todayLog.comment}</span>
+        </div>
+      )}
+
+      {!isCheckedToday && (
+        <button
+          type="button"
+          onClick={() => setShowComment((value) => !value)}
+          className="mb-2 flex items-center gap-1.5 text-[11px] font-medium text-stone-400 hover:text-stone-600 transition-colors"
+        >
+          <MessageSquare className="w-3 h-3" />
+          {showComment ? 'Ocultar comentario' : 'Agregar comentario'}
+        </button>
+      )}
+
       <motion.button
         whileTap={{ scale: 0.96 }}
-        onClick={() => !isCheckedToday && onCheckIn(habit._id || habit.id, todayStr)}
+        onClick={() => !isCheckedToday && onCheckIn(habit._id || habit.id, todayStr, comment)}
         disabled={isCheckedToday}
         className={`w-full py-2 rounded-xl text-xs font-semibold transition-all duration-200 ${
           isCheckedToday

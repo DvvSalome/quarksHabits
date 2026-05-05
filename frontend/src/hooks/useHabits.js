@@ -33,10 +33,24 @@ export function useHabits() {
         .in('habitId', habitIds)
       if (logsError) throw logsError
 
+      // Compatibility path: older Supabase schemas do not have HabitLog.comment yet.
+      // Comments are mirrored in Content so daily details work before/without a DB migration.
+      const { data: commentRows, error: commentsError } = await supabase
+        .from('Content')
+        .select('topic,body')
+        .eq('templateType', 'habit-log-comment')
+      if (commentsError) throw commentsError
+
+      const commentMap = new Map()
+      for (const row of commentRows || []) {
+        commentMap.set(row.topic, row.body)
+      }
+
       const logMap = new Map()
       for (const log of logs || []) {
+        const comment = log.comment || commentMap.get(`${log.habitId}:${log.date}`) || ''
         const list = logMap.get(log.habitId) || []
-        list.push(log)
+        list.push({ ...log, comment })
         logMap.set(log.habitId, list)
       }
       setData((habits || []).map((h) => ({ ...h, logs: logMap.get(h.id) || [] })))
@@ -82,15 +96,51 @@ export function useHabits() {
     setData((prev) => prev.filter((h) => h.id !== id))
   }, [])
 
-  const checkIn = useCallback(async (id, date) => {
+  const saveCommentFallback = useCallback(async (id, date, comment) => {
+    if (!user?.id || !comment) return
+    const { error } = await supabase.from('Content').upsert({
+      id: `habit-comment:${id}:${date}`,
+      userId: user.id,
+      templateType: 'habit-log-comment',
+      topic: `${id}:${date}`,
+      body: comment,
+    })
+    if (error) throw error
+  }, [user?.id])
+
+  const checkIn = useCallback(async (id, date, comment = '') => {
+    const trimmedComment = typeof comment === 'string' ? comment.trim() : ''
+    const payload = {
+      id: `${id}:${date}`,
+      habitId: id,
+      date,
+      completed: true,
+    }
+
+    if (trimmedComment) payload.comment = trimmedComment
+
+    let savedFallbackComment = false
     const { error: upsertError } = await supabase.from('HabitLog').upsert(
-      { id: `${id}:${date}`, habitId: id, date, completed: true },
+      payload,
       { onConflict: 'habitId,date' }
     )
-    if (upsertError) throw upsertError
+    if (upsertError?.code === 'PGRST204' && 'comment' in payload) {
+      delete payload.comment
+      const { error: retryError } = await supabase.from('HabitLog').upsert(
+        payload,
+        { onConflict: 'habitId,date' }
+      )
+      if (retryError) throw retryError
+      await saveCommentFallback(id, date, trimmedComment)
+      savedFallbackComment = true
+    } else if (upsertError) {
+      throw upsertError
+    }
+
+    if (trimmedComment && !savedFallbackComment) await saveCommentFallback(id, date, trimmedComment)
     await fetchHabits()
     return { ok: true }
-  }, [fetchHabits])
+  }, [fetchHabits, saveCommentFallback])
 
   return { data, loading, error, refetch: fetchHabits, create, update, delete: remove, checkIn }
 }

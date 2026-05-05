@@ -66,6 +66,8 @@ function StatBlock({ icon: Icon, value, label, bg, iconColor }) {
 }
 
 function FocusHabitCard({ habit, onCheckIn, onChangeFocus }) {
+  const [comment, setComment] = useState('')
+  const [showComment, setShowComment] = useState(false)
   const today = new Date()
   const todayStr = format(today, 'yyyy-MM-dd')
   const isCheckedToday = (habit.logs || []).some((l) => l.completed && l.date === todayStr)
@@ -154,9 +156,27 @@ function FocusHabitCard({ habit, onCheckIn, onChangeFocus }) {
       </div>
 
       {/* Check-in button */}
+      {showComment && !isCheckedToday && (
+        <textarea
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          placeholder="Comentario del día (opcional)"
+          rows={2}
+          className="mb-3 w-full resize-none rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-700 placeholder:text-stone-400 outline-none transition focus:border-violet-300 focus:bg-white"
+        />
+      )}
+      {!isCheckedToday && (
+        <button
+          type="button"
+          onClick={() => setShowComment((value) => !value)}
+          className="mb-3 text-xs font-medium text-stone-400 hover:text-stone-600 transition-colors"
+        >
+          {showComment ? 'Ocultar comentario' : 'Agregar comentario'}
+        </button>
+      )}
       <motion.button
         whileTap={{ scale: 0.97 }}
-        onClick={() => !isCheckedToday && onCheckIn(habit._id || habit.id, todayStr)}
+        onClick={() => !isCheckedToday && onCheckIn(habit._id || habit.id, todayStr, comment)}
         disabled={isCheckedToday}
         className={`w-full py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
           isCheckedToday
@@ -299,11 +319,13 @@ export default function Habits() {
     } catch {}
   }
 
-  const handleCheckIn = async (id, date) => {
+  const handleCheckIn = async (id, date, comment = '') => {
     try {
-      await checkIn(id, date)
+      await checkIn(id, date, comment)
       toast.success('¡Hábito completado! 🔥')
-    } catch {}
+    } catch (err) {
+      toast.error(err?.message || 'No se pudo marcar el hábito')
+    }
   }
 
   const handlePickFocus = useCallback((id) => {
