@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import {
   startOfWeek, endOfWeek, startOfMonth, endOfMonth,
   eachDayOfInterval, format, isWithinInterval, parseISO, isValid,
@@ -8,13 +8,16 @@ import { es } from 'date-fns/locale'
 import {
   TrendingUp, CheckCircle2, Repeat, Flame, Calendar,
   Sparkles, Loader2, Trophy, Target, Star, ChevronLeft, ChevronRight,
+  Smartphone, Moon, BookOpen, Brain, Save, HeartHandshake,
 } from 'lucide-react'
 import { useTasks } from '../hooks/useTasks'
 import { useHabits } from '../hooks/useHabits'
 import { useEvents } from '../hooks/useEvents'
+import { useDailyCheckins, EMPTY_DAILY_CHECKIN } from '../hooks/useDailyCheckins'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import { aiText } from '../lib/aiClient'
+import toast from 'react-hot-toast'
 
 function readAiConfig() {
   const provider = localStorage.getItem('ai_provider') || 'openrouter'
@@ -263,6 +266,232 @@ Dame resumen en 1 parrafo + 3 recomendaciones concretas.`,
   )
 }
 
+function Field({ label, children }) {
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span className="text-xs font-semibold text-gray-500">{label}</span>
+      {children}
+    </label>
+  )
+}
+
+function ScoreInput({ value, onChange, lowLabel, highLabel }) {
+  return (
+    <div>
+      <input
+        type="range"
+        min="1"
+        max="5"
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full accent-violet-600"
+      />
+      <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
+        <span>{lowLabel}</span>
+        <span className="font-bold text-violet-600">{value}/5</span>
+        <span>{highLabel}</span>
+      </div>
+    </div>
+  )
+}
+
+function DailyCheckinCard({ checkins }) {
+  const todayStr = format(new Date(), 'yyyy-MM-dd')
+  const existing = checkins.today
+  const [form, setForm] = useState(() => ({ ...EMPTY_DAILY_CHECKIN, ...(existing || {}) }))
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (existing) setForm({ ...EMPTY_DAILY_CHECKIN, ...existing })
+  }, [existing])
+
+  const set = (field) => (value) => setForm((prev) => ({ ...prev, [field]: value }))
+  const setFromEvent = (field) => (event) => set(field)(event.target.value)
+
+  const handleSave = async (event) => {
+    event.preventDefault()
+    setSaving(true)
+    try {
+      await checkins.save(todayStr, form)
+      toast.success('Registro diario guardado')
+    } catch (err) {
+      toast.error(err.message || 'No se pudo guardar')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Card gradient glow>
+      <div className="flex items-start justify-between gap-4 mb-5">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-violet-600 mb-1">Check-in de hoy</p>
+          <h2 className="text-xl font-bold text-gray-900">Tu evidencia contra el impostor</h2>
+          <p className="text-sm text-gray-500 mt-1">No buscamos un día perfecto. Buscamos datos reales y un paso pequeño.</p>
+        </div>
+        <div className="w-10 h-10 rounded-2xl bg-violet-50 flex items-center justify-center flex-shrink-0">
+          <HeartHandshake className="w-5 h-5 text-violet-600" />
+        </div>
+      </div>
+
+      <form onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Field label="Ánimo">
+          <ScoreInput value={form.mood} onChange={set('mood')} lowLabel="pesado" highLabel="bien" />
+        </Field>
+        <Field label="Energía">
+          <ScoreInput value={form.energy} onChange={set('energy')} lowLabel="sin pila" highLabel="con fuerza" />
+        </Field>
+        <Field label="Sueño (horas)">
+          <input type="number" min="0" max="16" step="0.5" value={form.sleepHours} onChange={setFromEvent('sleepHours')} placeholder="ej. 6.5" className="rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400" />
+        </Field>
+        <Field label="Celular / scroll">
+          <ScoreInput value={form.phoneLevel} onChange={set('phoneLevel')} lowLabel="controlado" highLabel="pegada" />
+        </Field>
+        <Field label="Comidas reales">
+          <select value={form.meals} onChange={(e) => set('meals')(Number(e.target.value))} className="rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400">
+            {[0, 1, 2, 3, 4].map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </Field>
+        <Field label="Estudio profundo (min)">
+          <input type="number" min="0" max="600" step="5" value={form.studyMinutes} onChange={setFromEvent('studyMinutes')} placeholder="aunque sean 10" className="rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400" />
+        </Field>
+        <Field label="Síndrome del impostor hoy">
+          <ScoreInput value={form.impostorLevel} onChange={set('impostorLevel')} lowLabel="bajito" highLabel="fuerte" />
+        </Field>
+        <Field label="Mini victoria del día">
+          <input value={form.win} onChange={setFromEvent('win')} placeholder="ej. abrí el proyecto, estudié 15 min..." className="rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400" />
+        </Field>
+        <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Field label="Evidencia de que sí avanzas">
+            <textarea rows={3} value={form.evidence} onChange={setFromEvent('evidence')} placeholder="Algo concreto que contradiga: “no sirvo / no avanzo”" className="resize-none rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400" />
+          </Field>
+          <Field label="Mañana solo necesito hacer esto">
+            <textarea rows={3} value={form.tomorrow} onChange={setFromEvent('tomorrow')} placeholder="Una acción pequeña, no una vida perfecta" className="resize-none rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400" />
+          </Field>
+        </div>
+        <div className="md:col-span-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-1">
+          <p className="text-xs text-gray-400">Tip: si el día fue malo, registrar eso también cuenta como progreso.</p>
+          <Button type="submit" loading={saving}>
+            <Save className="w-4 h-4" />
+            Guardar hoy
+          </Button>
+        </div>
+      </form>
+    </Card>
+  )
+}
+
+function WellnessTrendChart({ checkins }) {
+  const days = useMemo(() => {
+    const list = Array.from({ length: 14 }, (_, i) => subDays(new Date(), 13 - i))
+    return list.map((day) => {
+      const date = format(day, 'yyyy-MM-dd')
+      const row = checkins.find((item) => item.date === date)
+      return {
+        date,
+        label: format(day, 'dd/MM'),
+        mood: row?.mood || 0,
+        energy: row?.energy || 0,
+        sleep: Number(row?.sleepHours || 0),
+        study: Number(row?.studyMinutes || 0),
+        phone: row?.phoneLevel || 0,
+        meals: row?.meals || 0,
+        impostor: row?.impostorLevel || 0,
+      }
+    })
+  }, [checkins])
+
+  const metricCards = [
+    { icon: Moon, label: 'Sueño promedio', value: avg(days.map((d) => d.sleep)).toFixed(1), suffix: 'h', color: 'bg-indigo-50 text-indigo-600' },
+    { icon: Smartphone, label: 'Celular promedio', value: avg(days.map((d) => d.phone)).toFixed(1), suffix: '/5', color: 'bg-rose-50 text-rose-600' },
+    { icon: BookOpen, label: 'Estudio total', value: sum(days.map((d) => d.study)), suffix: 'min', color: 'bg-emerald-50 text-emerald-600' },
+    { icon: Brain, label: 'Impostor promedio', value: avg(days.map((d) => d.impostor)).toFixed(1), suffix: '/5', color: 'bg-amber-50 text-amber-600' },
+  ]
+
+  return (
+    <Card title="Tendencia bienestar — últimos 14 días">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+        {metricCards.map(({ icon: Icon, label, value, suffix, color }) => (
+          <div key={label} className="rounded-2xl border border-gray-100 p-3 bg-white">
+            <div className={`w-8 h-8 rounded-xl flex items-center justify-center mb-2 ${color}`}>
+              <Icon className="w-4 h-4" />
+            </div>
+            <p className="text-lg font-bold text-gray-900">{value}<span className="text-xs text-gray-400 ml-0.5">{suffix}</span></p>
+            <p className="text-[11px] text-gray-500">{label}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <LineBars title="Ánimo / Energía" data={days} keys={[{ key: 'mood', color: '#8b5cf6' }, { key: 'energy', color: '#22c55e' }]} max={5} />
+        <LineBars title="Celular vs impostor" data={days} keys={[{ key: 'phone', color: '#f43f5e' }, { key: 'impostor', color: '#f59e0b' }]} max={5} />
+        <LineBars title="Sueño" data={days} keys={[{ key: 'sleep', color: '#6366f1' }]} max={10} />
+        <LineBars title="Estudio profundo" data={days} keys={[{ key: 'study', color: '#10b981' }]} max={Math.max(60, ...days.map((d) => d.study))} />
+      </div>
+    </Card>
+  )
+}
+
+function LineBars({ title, data, keys, max }) {
+  return (
+    <div>
+      <p className="text-xs font-semibold text-gray-500 mb-3">{title}</p>
+      <div className="flex items-end gap-1.5 h-28">
+        {data.map((day) => (
+          <div key={day.date} className="flex-1 flex flex-col items-center gap-1 min-w-0">
+            <div className="w-full flex items-end gap-0.5 h-20">
+              {keys.map(({ key, color }) => (
+                <div
+                  key={key}
+                  title={`${day.label}: ${day[key]}`}
+                  className="flex-1 rounded-t"
+                  style={{ height: `${Math.min(100, (Number(day[key] || 0) / max) * 100)}%`, minHeight: day[key] ? 4 : 0, backgroundColor: color }}
+                />
+              ))}
+            </div>
+            <span className="text-[9px] text-gray-400 truncate">{day.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function EvidenceVault({ checkins }) {
+  const entries = checkins
+    .filter((item) => item.win || item.evidence || item.tomorrow)
+    .slice(0, 6)
+
+  return (
+    <Card title="Bóveda anti-impostor">
+      {entries.length === 0 ? (
+        <p className="text-sm text-gray-400 text-center py-5">Aún no hay evidencia guardada. Hoy puede ser la primera.</p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {entries.map((entry) => (
+            <div key={entry.date} className="rounded-2xl border border-violet-100 bg-violet-50/50 p-4">
+              <p className="text-[11px] font-semibold text-violet-600 mb-2">{entry.date}</p>
+              {entry.win && <p className="text-sm text-gray-800"><strong>Victoria:</strong> {entry.win}</p>}
+              {entry.evidence && <p className="text-sm text-gray-700 mt-1"><strong>Evidencia:</strong> {entry.evidence}</p>}
+              {entry.tomorrow && <p className="text-xs text-gray-500 mt-2">Siguiente paso: {entry.tomorrow}</p>}
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  )
+}
+
+function sum(values) {
+  return values.reduce((total, value) => total + Number(value || 0), 0)
+}
+
+function avg(values) {
+  const nonZero = values.map(Number).filter((value) => value > 0)
+  if (!nonZero.length) return 0
+  return sum(nonZero) / nonZero.length
+}
+
 // ── Main page ────────────────────────────────────────────────────────────────
 export default function Progress() {
   const [period, setPeriod] = useState('week')
@@ -272,6 +501,7 @@ export default function Progress() {
   const tasks = useTasks()
   const habits = useHabits()
   const events = useEvents()
+  const checkins = useDailyCheckins()
 
   const today = new Date()
 
@@ -362,7 +592,7 @@ export default function Progress() {
     }).sort((a, b) => b.rate - a.rate),
     [habits.data, interval])
 
-  const loading = tasks.loading || habits.loading || events.loading
+  const loading = tasks.loading || habits.loading || events.loading || checkins.loading
 
   const PRIORITY_COLORS = { high: 'bg-red-100 text-red-700', medium: 'bg-amber-100 text-amber-700', low: 'bg-gray-100 text-gray-500' }
   const PRIORITY_LABELS = { high: 'Alta', medium: 'Media', low: 'Baja' }
@@ -412,6 +642,10 @@ export default function Progress() {
           <ChevronRight className="w-4 h-4" />
         </button>
       </div>
+
+      <DailyCheckinCard checkins={checkins} />
+
+      <WellnessTrendChart checkins={checkins.data} />
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -562,6 +796,8 @@ export default function Progress() {
           </>
         )}
       </Card>
+
+      <EvidenceVault checkins={checkins.data} />
 
       {/* Trophy banner if great week */}
       {!loading && completedTasks.length >= 5 && (
